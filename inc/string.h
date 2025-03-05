@@ -278,5 +278,33 @@ void fix16ToStr(fix16 value, char *str, u16 numdec);
  * Converts the specified fix32 value to string.<br>
  */
 void fix32ToStr(fix32 value, char *str, u16 numdec);
+/**
+ *  \brief
+ *      Convert a fastfix16 value to string.
+ *
+ *  \param value
+ *      The fastfix16 value to convert to string.
+ *  \param str
+ *      Destination string (it must be large enough to receive result).
+ *  \param numdec
+ *      Number of wanted decimal.
+ *
+ * Converts the specified fastfix16 value to string.<br>
+ */
+void fastFix16ToStr(fastfix16 value, char *str, u16 numdec);
+/**
+ *  \brief
+ *      Convert a fastfix32 value to string.
+ *
+ *  \param value
+ *      The fastfix32 value to convert to string.
+ *  \param str
+ *      Destination string (it must be large enough to receive result).
+ *  \param numdec
+ *      Number of wanted decimal.
+ *
+ * Converts the specified fastfix32 value to string.<br>
+ */
+void fastFix32ToStr(fastfix32 value, char *str, u16 numdec);
 
 #endif // _STRING_H_

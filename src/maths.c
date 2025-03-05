@@ -183,7 +183,6 @@ FORCE_INLINE fix16 cosFix16(u16 value)
     return sintab_f16[(value + 256) & 1023];
 }
 
-
 FORCE_INLINE fix32 intToFix32(s32 value)
 {
     return value << FIX32_FRAC_BITS;
