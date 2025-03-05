@@ -278,18 +278,5 @@ void fix16ToStr(fix16 value, char *str, u16 numdec);
  * Converts the specified fix32 value to string.<br>
  */
 void fix32ToStr(fix32 value, char *str, u16 numdec);
-/**
- *  \brief
- *      Same as fix16ToStr(..)
- *  \see fix16ToStr
- */
-void F16_toStr(fix16 value, char *str, u16 numdec);
-/**
- *  \brief
- *      Same as fix32ToStr(..)
- *  \see fix32ToStr
- */
-void F32_toStr(fix32 value, char *str, u16 numdec);
 
 #endif // _STRING_H_
-

@@ -111,29 +111,19 @@ FORCE_INLINE s16 fix16ToInt(fix16 value)
     return value >> FIX16_FRAC_BITS;
 }
 
-FORCE_INLINE fix32 fix16_toFix32(fix16 value)
+FORCE_INLINE fix32 fix16ToFix32(fix16 value)
 {
     return value << (FIX32_FRAC_BITS - FIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fastfix16 fix16_toFastFix16(fix16 value)
+FORCE_INLINE fastfix16 fix16ToFastFix16(fix16 value)
 {
     return value << (FASTFIX16_FRAC_BITS - FIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fastfix32 fix16_toFastFix32(fix16 value)
+FORCE_INLINE fastfix32 fix16ToFastFix32(fix16 value)
 {
     return value << (FASTFIX32_FRAC_BITS - FIX16_FRAC_BITS);
-}
-
-FORCE_INLINE fix16 fix16_frac(fix16 value)
-{
-    return value & FIX16_FRAC_MASK;
-}
-
-FORCE_INLINE fix16 fix16_int(fix16 value)
-{
-    return fix16Int(value + (FIX16(0.5) - 1));
 }
 
 FORCE_INLINE s16 fix16ToRoundedInt(fix16 value)
@@ -209,19 +199,14 @@ FORCE_INLINE fix32 fix32Round(fix32 value)
     return fix32Int(value + (FIX32(0.5) - 1));
 }
 
-FORCE_INLINE fastfix16 fix32_toFastFix16(fix32 value)
+FORCE_INLINE fastfix16 fix32ToFastFix16(fix32 value)
 {
     return value >> (FIX32_FRAC_BITS - FASTFIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fastfix32 fix32_toFastFix32(fix32 value)
+FORCE_INLINE fastfix32 fix32ToFastFix32(fix32 value)
 {
     return value << (FASTFIX32_FRAC_BITS - FIX32_FRAC_BITS);
-}
-
-FORCE_INLINE fix32 fix32_frac(fix32 value)
-{
-    return fix32ToInt(value + (FIX32(0.5) - 1));
 }
 
 FORCE_INLINE fix32 fix32Frac(fix32 value)
@@ -262,12 +247,6 @@ FORCE_INLINE fix16 fix32ToFix16(fix32 value)
     return value >> (FIX32_FRAC_BITS - FIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fix32 fix16ToFix32(fix16 value)
-{
-    return value << (FIX32_FRAC_BITS - FIX16_FRAC_BITS);
-}
-
-
 FORCE_INLINE fix32 sinFix32(u16 value)
 {
     return sintab_f32[value & 1023];
@@ -289,22 +268,22 @@ FORCE_INLINE s16 fastFix16ToInt(fastfix16 value)
     return value >> FASTFIX16_FRAC_BITS;
 }
 
-FORCE_INLINE fix16 fastfix16_toFix16(fastfix16 value)
+FORCE_INLINE fix16 fastfix16ToFix16(fastfix16 value)
 {
     return value >> (FASTFIX16_FRAC_BITS - FIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fix32 fastfix16_toFix32(fastfix16 value)
+FORCE_INLINE fix32 fastfix16ToFix32(fastfix16 value)
 {
     return value << (FIX32_FRAC_BITS - FASTFIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fastfix32 fastfix16_toFastFix32(fastfix16 value)
+FORCE_INLINE fastfix32 fastfix16ToFastFix32(fastfix16 value)
 {
     return value << (FASTFIX32_FRAC_BITS - FASTFIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fastfix16 fastfix16_frac(fastfix16 value)
+FORCE_INLINE fastfix16 fastfix16frac(fastfix16 value)
 {
     return fastFix16Int(value + (FASTFIX16(0.5) - 1));
 }
@@ -346,24 +325,19 @@ FORCE_INLINE s16 fastFix32ToInt(fastfix32 value)
     return value >> FASTFIX32_FRAC_BITS;
 }
 
-FORCE_INLINE fix16 fastfix32_toFix16(fastfix32 value)
+FORCE_INLINE fix16 fastfix32ToFix16(fastfix32 value)
 {
     return value >> (FASTFIX32_FRAC_BITS - FIX16_FRAC_BITS);
 }
 
-FORCE_INLINE fix32 fastfix32_toFix32(fastfix32 value)
+FORCE_INLINE fix32 fastfix32ToFix32(fastfix32 value)
 {
     return value >> (FASTFIX32_FRAC_BITS - FIX32_FRAC_BITS);
 }
 
-FORCE_INLINE fastfix16 fastfix32_toFastFix16(fastfix32 value)
+FORCE_INLINE fastfix16 fastfix32ToFastFix16(fastfix32 value)
 {
     return value >> (FASTFIX32_FRAC_BITS - FASTFIX16_FRAC_BITS);
-}
-
-FORCE_INLINE fastfix32 fastfix32_frac(fastfix32 value)
-{
-    return fastFix32Int(value + (FASTFIX32(0.5) - 1));
 }
 
 FORCE_INLINE s32 fastFix32ToRoundedInt(fastfix32 value)

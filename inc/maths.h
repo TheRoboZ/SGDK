@@ -565,12 +565,12 @@ s16 fix16ToRoundedInt(fix16 value);
  *  \brief
  *      Convert specified fix16 value to fastfix16.
  */
-fastfix16 fix16_toFastFix16(fix16 value);
+fastfix16 fix16ToFastFix16(fix16 value);
 /**
  *  \brief
  *      Convert specified fix16 value to fastfix32.
  */
-fastfix32 fix16_toFastFix32(fix16 value);
+fastfix32 fix16ToFastFix32(fix16 value);
 /**
  *  \brief
  *      Return fractional part of the specified value (fix16).
@@ -662,12 +662,12 @@ s32 fix32ToRoundedInt(fix32 value);
  *  \brief
  *      Convert specified fix32 value to fastfix16.
  */
-fastfix16 fix32_toFastFix16(fix32 value);
+fastfix16 fix32ToFastFix16(fix32 value);
 /**
  *  \brief
  *      Convert specified fix32 value to fastfix32.
  */
-fastfix32 fix32_toFastFix32(fix32 value);
+fastfix32 fix32ToFastFix32(fix32 value);
 /**
  *  \brief
  *      Return fractional part of the specified value (fix32).
