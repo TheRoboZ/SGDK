@@ -727,22 +727,22 @@ fastfix16 intToFastFix16(s16 value);
  *  \brief
  *      Convert fastfix16 to integer.
  */
-s16 fastFix16_toInt(fastfix16 value);
+s16 fastFix16ToInt(fastfix16 value);
 /**
  *  \brief
  *      Convert fastfix16 to fix16.
  */
-fix16 fastFix16_toFix16(fastfix16 value);
+fix16 fastFix16ToFix16(fastfix16 value);
 /**
  *  \brief
  *      Convert fastfix16 to fix32.
  */
-fix32 fastFix16_toFix32(fastfix16 value);
+fix32 fastFix16ToFix32(fastfix16 value);
 /**
  *  \brief
  *      Convert fastfix16 to fastfix32.
  */
-fastfix32 fastFix16_toFastFix32(fastfix16 value);
+fastfix32 fastFix16ToFastFix32(fastfix16 value);
 /**
  *  \brief
  *      Round the specified value to nearest integer (fastfix16).
@@ -791,17 +791,17 @@ s16 fastFix32ToInt(fastfix32 value);
  *  \brief
  *      Convert fastfix32 to fix16.
  */
-fix16 fastFix32_toFix16(fastfix32 value);
+fix16 fastFix32ToFix16(fastfix32 value);
 /**
  *  \brief
  *      Convert fastfix32 to fix32.
  */
-fix32 fastFix32_toFix32(fastfix32 value);
+fix32 fastFix32ToFix32(fastfix32 value);
 /**
  *  \brief
  *      Convert fastfix32 to fastfix16.
  */
-fastfix16 fastFix32_toFastFix16(fastfix32 value);
+fastfix16 fastFix32ToFastFix16(fastfix32 value);
 /**
  *  \brief
  *      Return fractional part of the specified value (fastfix32).
