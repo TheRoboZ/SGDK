@@ -291,7 +291,7 @@ void fix16ToStr(fix16 value, char *str, u16 numdec)
     *dst++ = '.';
 
     // get fractional part
-    const u16 frac = mulu((u16) F16_frac(v), 1000) >> FIX16_FRAC_BITS;
+    const u16 frac = mulu((u16) fix16Frac(v), 1000) >> FIX16_FRAC_BITS;
 
     u16 len = uint16ToStr(frac, dst, 3);
 
@@ -321,7 +321,7 @@ void fix32ToStr(fix32 value, char *str, u16 numdec)
     *dst++ = '.';
 
     // get fractional part
-    const u16 frac = mulu((u16) F32_frac(v), 1000) >> FIX32_FRAC_BITS;
+    const u16 frac = mulu((u16) fix32Frac(v), 1000) >> FIX32_FRAC_BITS;
 
     u16 len = uint16ToStr(frac, dst, 3);
 
@@ -376,11 +376,11 @@ void fastFix32ToStr(fastfix32 value, char *str, u16 numdec)
         *dst++ = '-';
     }
 
-    dst += uint16ToStr((u16) fastfix32ToInt(v), dst, 1);
+    dst += uint16ToStr((u16) fastFix32ToInt(v), dst, 1);
     *dst++ = '.';
 
     // get fractional part
-    const u16 frac = mulu((u16) fastfix32Frac(v), 10000) >> FASTFIX32_FRAC_BITS;
+    const u16 frac = mulu((u16) fastFix32Frac(v), 10000) >> FASTFIX32_FRAC_BITS;
     u16 len = uint16ToStr(frac, dst, 4);
 
     if (len < numdec)
