@@ -836,7 +836,7 @@ static u16 displayResult(u32 op, fix32 time, u16 y)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speed);
+    return fix32ToInt(speed);
 }
 
 static u16 displayResult2(u32 op, fix32 time, u16 y)
@@ -862,7 +862,7 @@ static u16 displayResult2(u32 op, fix32 time, u16 y)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speed);
+    return fix32ToInt(speed);
 }
 
 static u16 displayResult3(u32 op, fix32 time, u16 y)
@@ -888,5 +888,5 @@ static u16 displayResult3(u32 op, fix32 time, u16 y)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speed);
+    return fix32ToInt(speed);
 }

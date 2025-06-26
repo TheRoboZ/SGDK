@@ -170,7 +170,7 @@ static void animateStarfield()
     for(s16 i = 0; i < TABLE_LEN; i++)
     {
         scroll_PLAN_B_F[i] += scroll_speed[i];
-        scroll_PLAN_B[i] = F16_toInt(scroll_PLAN_B_F[i]) & 0x1FF;
+        scroll_PLAN_B[i] = fix16ToInt(scroll_PLAN_B_F[i]) & 0x1FF;
     }
 
     // send hscroll table to VDP using DMA queue (will be done on vblank by SYS_doVBlankProcess())
@@ -180,7 +180,7 @@ static void animateStarfield()
 static void animateDonut()
 {
     // start angle and amplitude
-    s16 angle = F16_toInt(donutPhase);
+    s16 angle = fix16ToInt(donutPhase);
     fix16 amplitude = donutAmplitude;
 
     for(s16 i = 0; i < MAX_DONUT; i++)
@@ -192,7 +192,7 @@ static void animateDonut()
         const fix16 x = F16_mul(F16_cos(donutAngleF), amplitude);
         const fix16 y = F16_mul(F16_sin(donutAngleF), amplitude / 2);
 
-        SPR_setPosition(spr, (160 - 16) + F16_toInt(x), (112 - 16) + F16_toInt(y));
+        SPR_setPosition(spr, (160 - 16) + fix16ToInt(x), (112 - 16) + fix16ToInt(y));
         //if (spr->depth != -1) SPR_setDepth(spr, spr->y);
         SPR_setFrame(spr, frame);
         SPR_setVRAMTileIndex(spr, animVramIndexes[frame]);

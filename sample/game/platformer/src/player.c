@@ -161,12 +161,12 @@ void updatePlayer() {
 			else
 				playerBody.velocity.fixX = 0;
 		}
-		playerBody.velocity.x = clamp(F16_toInt(playerBody.velocity.fixX), -playerBody.speed, playerBody.speed);
+		playerBody.velocity.x = clamp(fix16ToInt(playerBody.velocity.fixX), -playerBody.speed, playerBody.speed);
 	}
 
 	//Apply gravity with a terminal velocity
 	if (!playerBody.onGround && !playerBody.climbingStair) {
-		if (F16_toInt(playerBody.velocity.fixY) <= playerBody.maxFallSpeed) {
+		if (fix16ToInt(playerBody.velocity.fixY) <= playerBody.maxFallSpeed) {
 			playerBody.velocity.fixY = playerBody.velocity.fixY + gravityScale;
 		}else {
 			playerBody.velocity.fixY = FIX16(playerBody.maxFallSpeed);
@@ -175,7 +175,7 @@ void updatePlayer() {
 
 	//Once all the input-related have been calculated, we apply the velocities to the global positions
 	playerBody.globalPosition.x += playerBody.velocity.x;
-	playerBody.globalPosition.y += F16_toInt(playerBody.velocity.fixY);
+	playerBody.globalPosition.y += fix16ToInt(playerBody.velocity.fixY);
 
 	//Now we can check for collisions and correct those positions
 	checkCollisions();

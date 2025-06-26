@@ -277,8 +277,8 @@ static void drawPartic(_particule *part, s16 num, u8 col)
     pos = part_pos;
     while(i--)
     {
-        pos->x = F16_toInt(p->pos.x);
-        pos->y = maxy - F16_toInt(p->pos.y);
+        pos->x = fix16ToInt(p->pos.x);
+        pos->y = maxy - fix16ToInt(p->pos.y);
 
         p++;
         pos++;

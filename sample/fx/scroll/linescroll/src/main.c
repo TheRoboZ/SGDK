@@ -90,7 +90,7 @@ int main()
 
         // update scroll from fix16 scroll table
         for(u16 i = 0; i < 224; i++)
-            scrollI[i] = F16_toInt(scroll[i]);
+            scrollI[i] = fix16ToInt(scroll[i]);
 
         // update line scroll using DMA queue
         VDP_setHorizontalScrollLine(BG_A, 0, scrollI, 224, DMA_QUEUE);

@@ -822,7 +822,7 @@ static u32 displayResult(u32 bytes, fix32 time, u16 y)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speedKb);
+    return fix32ToInt(speedKb);
 }
 
 static u32 displayResultAlloc(u32 nb, fix32 time, u16 y)
@@ -837,7 +837,7 @@ static u32 displayResultAlloc(u32 nb, fix32 time, u16 y)
     // get speed in op/s
     speed = F32_div(speed, time);
     // put it in speedStr
-    intToStr(F32_toInt(speed) * 100, speedStr, 1);
+    intToStr(fix32ToInt(speed) * 100, speedStr, 1);
 
     strcpy(str, "Elapsed time = ");
     strcat(str, timeStr);
@@ -848,5 +848,5 @@ static u32 displayResultAlloc(u32 nb, fix32 time, u16 y)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speed);
+    return fix32ToInt(speed);
 }

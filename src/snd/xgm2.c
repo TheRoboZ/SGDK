@@ -1041,12 +1041,12 @@ static void vintFadeProcess(void)
     if (fadeCount & 1)
     {
         fadeFMVol += fadeFMVolStep;
-        setFMVolume(F16_toInt(fadeFMVol));
+        setFMVolume(fix16ToInt(fadeFMVol));
     }
     else
     {
         fadePSGVol += fadePSGVolStep;
-        setPSGVolume(F16_toInt(fadePSGVol));
+        setPSGVolume(fix16ToInt(fadePSGVol));
     }
 
     // mark volume need to be restored

@@ -665,7 +665,7 @@ static u32 displayResult(u32 op, fix32 time, u16 y, u32 dirty)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speedKop);
+    return fix32ToInt(speedKop);
 }
 
 static u32 displayResult3D(u32 op, fix32 time, u16 y, u32 dirty)
@@ -691,5 +691,5 @@ static u32 displayResult3D(u32 op, fix32 time, u16 y, u32 dirty)
     // display test string
     VDP_drawText(str, 3, y);
 
-    return F32_toInt(speedKop);
+    return fix32ToInt(speedKop);
 }
