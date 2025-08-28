@@ -17,7 +17,7 @@ import sgdk.xgm2tool.tool.Util;
 
 public class Launcher extends JFrame
 {
-    final static String VERSION = "1.05";
+    final static String VERSION = "1.07";
 
     final static int SYSTEM_AUTO = -1;
     final static int SYSTEM_NTSC = 0;
@@ -83,7 +83,7 @@ public class Launcher extends JFrame
     private static int execute(String[] args) throws IOException
     {
         // out/sor2*.vgm out/sor2.xgc
-        
+
         final List<String> files = new ArrayList<>();
 
         sys = SYSTEM_AUTO;
@@ -129,7 +129,7 @@ public class Launcher extends JFrame
         // silent mode has priority
         if (silent)
             verbose = false;
-        
+
         final int numFile = files.size();
         final String outFile = files.get(files.size() - 1);
         final String outExt = FileUtil.getFileExtension(outFile, false).toUpperCase();
