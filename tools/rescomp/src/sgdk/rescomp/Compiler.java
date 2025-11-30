@@ -55,7 +55,7 @@ import sgdk.tool.StringUtil;
 
 public class Compiler
 {
-    private final static String EXT_JAR_NAME = "rescomp_ext.jar";
+    //private final static String EXT_JAR_NAME = "rescomp_ext.jar";
     // private final static String REGEX_LETTERS = "[a-zA-Z]";
     // private final static String REGEX_ID = "\\b([A-Za-z][A-Za-z0-9_]*)\\b";
 
@@ -96,8 +96,8 @@ public class Compiler
     public final static Set<String> resourcesFile = new HashSet<>();
 
     public static boolean extensionsLoaded = false;
-    
-    // TODO: set that to false on release 
+
+    // TODO: set that to false on release
     public static boolean DAGame = false;
 
     public static boolean compile(String fileName, String fileNameOut, boolean header, String depTarget)
@@ -207,7 +207,7 @@ public class Compiler
             headerName += "_" + FileUtil.getFileName(fileNameOut, false);
             headerName = headerName.toUpperCase();
 
-            outH.append("#include <genesis.h>\n");            
+            outH.append("#include <genesis.h>\n");
             outH.append("#ifndef _" + headerName + "_H_\n");
             outH.append("#define _" + headerName + "_H_\n\n");
 
@@ -414,63 +414,86 @@ public class Compiler
         return true;
     }
 
-    private static void loadExtensions() throws IOException
-    {
-        final File rescompExt = StringUtil.isEmpty(resDir) ? new File(EXT_JAR_NAME) : new File(resDir, EXT_JAR_NAME);
+    private static void loadExtensions() throws IOException {
+        // Determine the directory to scan
+        final File jarDir = StringUtil.isEmpty(resDir) ? new File(".") : new File(resDir);
 
-        // found an extension ?
-        if (rescompExt.exists())
-        {
-            // build the class loader
-            final URLClassLoader classLoader = new URLClassLoader(new URL[] {rescompExt.toURI().toURL()}, Compiler.class.getClassLoader());
+        if (!jarDir.exists() || !jarDir.isDirectory()) {
+            System.err.println("Extension directory does not exist or is not a directory: " + jarDir.getAbsolutePath());
+            return;
+        }
 
-            try
-            {
-                // get all classes from JAR file
-                for (String className : findClassNamesInJAR(rescompExt.getAbsolutePath()))
-                {
-                    try
-                    {
-                        // try to load class
+        // Get all .jar files in the directory
+        final File[] jarFiles = jarDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+
+        if (jarFiles == null || jarFiles.length == 0) {
+            System.out.println("No JAR files found in extension directory: " + jarDir.getAbsolutePath());
+            return;
+        }
+
+        System.out.println("Scanning " + jarFiles.length + " JAR files for extensions...");
+
+        // Process each JAR file
+        for (File jarFile : jarFiles) {
+
+        	 // Create class loader for this specific JAR
+        	final URLClassLoader classLoader = new URLClassLoader(new URL[]{jarFile.toURI().toURL()},
+                                           Compiler.class.getClassLoader());
+
+            System.out.println("Scanning JAR: " + jarFile.getName());
+
+            try {
+
+                // Get all classes from this JAR file
+                for (String className : findClassNamesInJAR(jarFile.getAbsolutePath())) {
+                    try {
+                        // Try to load class
                         final Class<?> clazz = classLoader.loadClass(className);
 
-                        try
-                        {
-                            // is a processor class ?
-                            final Class<? extends Processor> processorClass = clazz.asSubclass(Processor.class);
-                            // create the processor
-                            final Processor processor = processorClass.newInstance();
+                        try {
+                        		// Is it a processor class?
+                            	final Class<? extends Processor> processorClass = clazz.asSubclass(Processor.class);
 
-                            // and add to processor list
-                            resourceProcessors.add(processor);
+                            	// create the processor
+                            	final Processor processor = processorClass.newInstance();
 
-                            System.out.println("Extension '" + processor.getId() + "' loaded.");
+                                // Add to processor list
+                            	if (!resourceProcessors.contains(processor)) {
+                            		resourceProcessors.add(processor);
+                                    System.out.println("Extension '" + processor.getId() + "' loaded from JAR: " + jarFile.getName());
+                            		}
+                            	else
+                                    System.out.println("WARNING: Extension '" + processor.getId() + "' in JAR: " + jarFile.getName()+"SKIPPED because it already exists!");
+
+                            }
+                        	catch (Throwable t) {
+                            // Not a processor or cannot instantiate --> ignore
                         }
-                        catch (Throwable t)
-                        {
-                            // not a processor --> ignore
+                    } catch (UnsupportedClassVersionError e) {
+                        System.err.println("Class '" + className + "' in " + jarFile.getName() +
+                                         " cannot be loaded: newer java required.");
+                    } catch (Throwable t) {
+                        // Class loading error --> ignore this class but continue with others
+                        if (!(t instanceof ClassNotFoundException)) {
+                            System.err.println("Class '" + className + "' in " + jarFile.getName() +
+                                             " cannot be loaded: " + t.getMessage());
                         }
-                    }
-                    catch (UnsupportedClassVersionError e)
-                    {
-                        System.err.println("Class '" + className + "' cannot be loaded: newer java required.");
-                    }
-                    catch (Throwable t)
-                    {
-                        System.err.println("Class '" + className + "' cannot be loaded:" + t.getMessage());
                     }
                 }
-            }
-            finally
-            {
+            } catch (Exception e) {
+                System.err.println("Error processing JAR file " + jarFile.getName() + ": " + e.getMessage());
+            } finally {
+
                 classLoader.close();
             }
         }
+
+        System.out.println("Extension loading completed. Total processors loaded: " + resourceProcessors.size());
     }
 
     /**
      * This method checks and transforms the filename of a potential {@link Class} given by <code>fileName</code>.<br>
-     * 
+     *
      * @param fileName
      *        is the filename.
      * @return the according Java {@link Class#getName() class-name} for the given <code>fileName</code> if it is a
@@ -496,7 +519,7 @@ public class Compiler
 
     /**
      * This method checks and transforms the filename of a potential {@link Class} given by <code>fileName</code>.
-     * 
+     *
      * @param fileName
      *        is the filename.
      * @return the according Java {@link Class#getName() class-name} for the given <code>fileName</code> if it is a
@@ -522,7 +545,7 @@ public class Compiler
 
     /**
      * Search for all classes in JAR file
-     * 
+     *
      * @throws IOException
      */
     private static Set<String> findClassNamesInJAR(String fileName) throws IOException
@@ -800,7 +823,7 @@ public class Compiler
                 if (resourceType.equalsIgnoreCase(rp.getId()))
                     return rp;
         }
-        
+
         return null;
     }
 }
