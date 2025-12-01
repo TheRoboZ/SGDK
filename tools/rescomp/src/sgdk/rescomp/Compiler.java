@@ -15,14 +15,13 @@ import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.ServiceLoader;
+import java.util.Optional;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
+import java.util.ServiceLoader;
 
 import sgdk.rescomp.processor.AlignProcessor;
 import sgdk.rescomp.processor.BinProcessor;
@@ -58,7 +57,7 @@ import sgdk.tool.StringUtil;
 
 public class Compiler
 {
-    //private final static String EXT_JAR_NAME = "rescomp_ext.jar";
+    private final static String EXT_JAR_NAME = "rescomp_ext.jar";
     // private final static String REGEX_LETTERS = "[a-zA-Z]";
     // private final static String REGEX_ID = "\\b([A-Za-z][A-Za-z0-9_]*)\\b";
 
@@ -416,7 +415,9 @@ public class Compiler
 
         return true;
     }
+
     private static final List<URLClassLoader> activeClassLoaders = new ArrayList<>();
+
     //Shutdown hook for proper cleanup
     private static final Thread SHUTDOWN_HOOK = new Thread(() -> {
         System.out.println("\n Shutting down extension ClassLoaders...");
@@ -430,7 +431,7 @@ public class Compiler
             }
         }
         activeClassLoaders.clear();
-        System.out.println(" - Closed " + closedCount + " extension ClassLoaders");
+        System.out.println(" - Closed " + closedCount + " extension ClassLoaders\n");
     });
 
     static {
@@ -465,94 +466,271 @@ public class Compiler
         }
     }
 
-private static void loadExtensions() throws IOException {
-    // Determine the directory to scan
-    final File jarDir = StringUtil.isEmpty(resDir) ? new File(".") : new File(resDir);
+    private static void loadExtensions() throws IOException
+    {
+        final File rescompExt = StringUtil.isEmpty(resDir) ? new File(EXT_JAR_NAME) : new File(resDir, EXT_JAR_NAME);
 
-    // Get all .jar files in the directory
-    final File[] jarFiles = jarDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+        // found an extension ?
+        if (rescompExt.exists())
+        {
+            // build the class loader
+            final URLClassLoader classLoader = new URLClassLoader(new URL[] {rescompExt.toURI().toURL()}, Compiler.class.getClassLoader());
 
-    if (jarFiles == null || jarFiles.length == 0) {
-        System.out.println("No JAR files found in extension directory: " + jarDir.getAbsolutePath());
-        return;
-    }
+            System.out.println("Trying to Load Legacy RESCOMP Extensions from " + EXT_JAR_NAME);
 
-    System.out.println("Scanning " + jarFiles.length + " JAR files for extensions using ServiceLoader...");
+            try
+            {
+                // get all classes from JAR file
+                for (String className : findClassNamesInJAR(rescompExt.getAbsolutePath()))
+                {
+                    try
+                    {
+                        // try to load class
+                        final Class<?> clazz = classLoader.loadClass(className);
 
-    // Track loading results for debugging
-    Map<String, List<String>> jarProcessors = new HashMap<>();
-    Map<String, List<String>> jarErrors = new HashMap<>();
-    int totalProcessorsLoaded = 0;
+                        try
+                        {
+                            // is a processor class ?
+                            final Class<? extends Processor> processorClass = clazz.asSubclass(Processor.class);
+                            // create the processor
+                            final Processor processor = processorClass.newInstance();
 
-        // Process each JAR file
-    for (File jarFile : jarFiles) {
-        List<String> processorsLoaded = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
+                            // and add to processor list
+                            resourceProcessors.add(processor);
 
-        URLClassLoader jarClassLoader = null;
-        try {
-            // Create class loader for this specific JAR
-            jarClassLoader = new URLClassLoader(
-                new URL[]{jarFile.toURI().toURL()},
-                Compiler.class.getClassLoader()  // Better parent
-            );
+                            System.out.println("Extension '" + processor.getId() + "' loaded.");
+                        }
+                        catch (Throwable t)
+                        {
+                            // not a processor --> ignore
+                        }
+                    }
+                    catch (UnsupportedClassVersionError e)
+                    {
+                        System.err.println("Class '" + className + "' cannot be loaded: newer java required.");
+                    }
+                    catch (Throwable t)
+                    {
+                        System.err.println("Class '" + className + "' cannot be loaded:" + t.getMessage());
+                    }
+                }
+            }
+            finally
+            {
+                classLoader.close();
+            }
+        }
+        else
+        {
+            // Determine the directory to scan
+            final File jarDir = StringUtil.isEmpty(resDir) ? new File(".") : new File(resDir);
 
-            activeClassLoaders.add(jarClassLoader);
-
-            System.out.println("Scanning JAR: " + jarFile.getName());
-
-            // Check if ServiceLoader file exists BEFORE loading
-            String serviceFilePath = "META-INF/services/" + Processor.class.getName();
-            boolean hasServiceLoaderFile = hasServiceLoaderFile(jarFile, serviceFilePath);
-
-            if (!hasServiceLoaderFile) {
-                errors.add("ERROR: MISSING ServiceLoader file: " + serviceFilePath);
-                System.out.println("IN:  " + jarFile.getName() + ": No ServiceLoader configuration found. Create: " + serviceFilePath);
+            // Get all .jar files in the directory
+            final File[] jarFiles = jarDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+            if (jarFiles == null || jarFiles.length == 0) {
+                //System.out.println("No JAR files found in extension directory: " + jarDir.getAbsolutePath());
+                return;
             }
 
-            // Use ServiceLoader
-            ServiceLoader<Processor> serviceLoader = ServiceLoader.load(Processor.class, jarClassLoader);
+            System.out.println("Scanning " + jarFiles.length + " JAR files for extensions using ServiceLoader...");
 
-            for (Processor rawProcessor : serviceLoader) {
+            // Track loading results for debugging
+            Map<String, List<String>> jarProcessors = new HashMap<>();
+            Map<String, List<String>> jarErrors = new HashMap<>();
+            int totalProcessorsLoaded = 0;
+
+                // Process each JAR file
+            for (File jarFile : jarFiles) {
+                List<String> processorsLoaded = new ArrayList<>();
+                List<String> errors = new ArrayList<>();
+
+                URLClassLoader jarClassLoader = null;
+
                 try {
-                    // Validate processor before adding
-                    if (isValidProcessor(rawProcessor)) {
+                    // Create class loader for this specific JAR
+                    jarClassLoader = new URLClassLoader(
+                        new URL[]{jarFile.toURI().toURL()},
+                        Compiler.class.getClassLoader()  // Better parent
+                    );
 
-                        Processor wrappedProcessor = new CompatibleProcessorWrapper(rawProcessor, jarClassLoader);
-                        resourceProcessors.add(wrappedProcessor);  // ← YOUR ORIGINAL LIST!
+                    System.out.println("Scanning JAR: " + jarFile.getName());
 
-                        processorsLoaded.add(wrappedProcessor.getId() + " (" + rawProcessor.getClass().getName() + ")");
-                        totalProcessorsLoaded++;
+                    // Check if ServiceLoader file exists BEFORE loading
+                    String serviceFilePath = "META-INF/services/" + Processor.class.getName();
+                    boolean hasServiceLoaderFile = hasServiceLoaderFile(jarFile, serviceFilePath);
 
-                        System.out.println("Extension '" + wrappedProcessor.getId() + "' loaded from JAR: " + jarFile.getName());
+                    if (!hasServiceLoaderFile) {
+                        errors.add("ERROR: MISSING ServiceLoader file: " + serviceFilePath);
+                        System.out.println("IN:  " + jarFile.getName() + ": No ServiceLoader configuration found. Create: " + serviceFilePath);
+                        //IMMEDIATELY CLOSE ClassLoader - NO PROCESSORS POSSIBLE
+                        closeClassLoaderSafely(jarClassLoader, jarFile.getName());
+                        jarClassLoader = null;  // Mark as closed
+                    }else {
+                        // ServiceLoader file exists
+                        System.out.println("IN:  " + jarFile.getName() + ": ServiceLoader file found.");
+
+                        // Use ServiceLoader
+                        ServiceLoader<Processor> serviceLoader = ServiceLoader.load(Processor.class, jarClassLoader);
+                        boolean foundValidProcessor = false;
+
+                        for (Processor rawProcessor : serviceLoader) {
+                            try {
+                                // Validate processor before adding
+                                if (isValidProcessor(rawProcessor)) {
+
+                                    Processor wrappedProcessor = new CompatibleProcessorWrapper(rawProcessor, jarClassLoader);
+                                    resourceProcessors.add(wrappedProcessor);  // ← YOUR ORIGINAL LIST!
+
+                                    processorsLoaded.add(wrappedProcessor.getId() + " (" + rawProcessor.getClass().getName() + ")");
+                                    totalProcessorsLoaded++;
+
+                                    foundValidProcessor = true;
+
+                                    System.out.println("Extension '" + wrappedProcessor.getId() + "' loaded from JAR: " + jarFile.getName());
+                                }
+                                else {
+                                    errors.add("Processor skipped.");
+                                    continue;
+                                }
+
+                            } catch (Throwable t) {
+                                String errorMsg = "Failed to load processor: " + t.getClass().getSimpleName() +
+                                                " - " + t.getMessage();
+                                errors.add(errorMsg);
+                                System.err.println("WARNING: " + errorMsg + " in " + jarFile.getName());
+                            }
+
+                            // If NO valid processors found but ServiceLoader file exists
+                            if (!foundValidProcessor) {
+                                errors.add("WARNING: ServiceLoader file exists but no valid processors found");
+                                System.out.println("IN:  " + jarFile.getName() + ": Empty/invalid ServiceLoader configuration");
+                            }
+                        }
                     }
+                } catch (Exception e) {
+                    errors.add("JAR loading failed: " + e.getMessage());
+                    System.err.println("ERROR: Failed to process JAR: " + jarFile.getName() + " - " + e.getMessage());
+                } finally {
+                    //CRITICAL: Only keep ClassLoader alive if we found VALID PROCESSORS
+                    if (jarClassLoader != null && !errors.isEmpty() && processorsLoaded.isEmpty()) {
+                        // No valid processors found - close immediately
+                        closeClassLoaderSafely(jarClassLoader, jarFile.getName());
+                    } else if (!processorsLoaded.isEmpty()) {
+                        // Found valid processors - keep ClassLoader alive
+                        activeClassLoaders.add(jarClassLoader);
+                        //System.out.println("Keeping ClassLoader alive for " + jarFile.getName() +  " (" + processorsLoaded.size() + " processors)");
+                    } else {
+                        // Safety: close if not already closed
+                        closeClassLoaderSafely(jarClassLoader, jarFile.getName());
+                    }
+                }
 
-                } catch (Throwable t) {
-                    String errorMsg = "Failed to load processor: " + t.getClass().getSimpleName() +
-                                    " - " + t.getMessage();
-                    errors.add(errorMsg);
-                    System.err.println("WARNING: " + errorMsg + " in " + jarFile.getName());
+                    // Store results
+                if (!processorsLoaded.isEmpty()) {
+                    jarProcessors.put(jarFile.getName(), processorsLoaded);
+                }
+                if (!errors.isEmpty()) {
+                    jarErrors.put(jarFile.getName(), errors);
                 }
             }
 
-        } catch (Exception e) {
-            errors.add("JAR loading failed: " + e.getMessage());
-            System.err.println("ERROR: Failed to process JAR: " + jarFile.getName() + " - " + e.getMessage());
-        }
-
-            // Store results
-        if (!processorsLoaded.isEmpty()) {
-            jarProcessors.put(jarFile.getName(), processorsLoaded);
-        }
-        if (!errors.isEmpty()) {
-            jarErrors.put(jarFile.getName(), errors);
+            // Comprehensive report
+            printServiceLoaderReport(jarFiles.length, totalProcessorsLoaded, jarProcessors, jarErrors);
+            System.out.println(activeClassLoaders.size() + " ClassLoaders kept alive");
         }
     }
 
-        // Comprehensive report
-    printServiceLoaderReport(jarFiles.length, totalProcessorsLoaded, jarProcessors, jarErrors);
-    System.out.println(activeClassLoaders.size() + " ClassLoaders kept alive");
-}
+    /**
+     * This method checks and transforms the filename of a potential {@link Class} given by <code>fileName</code>.<br>
+     *
+     * @param fileName
+     *        is the filename.
+     * @return the according Java {@link Class#getName() class-name} for the given <code>fileName</code> if it is a
+     *         class-file that is no anonymous {@link Class}, else <code>null</code>.
+     */
+    private static String fixClassName(String fileName)
+    {
+        // replace path separator by package separator
+        String result = fileName.replace('/', '.');
+
+        // handle inner classes...
+        final int lastDollar = result.lastIndexOf('$');
+        if (lastDollar > 0)
+        {
+            char innerChar = result.charAt(lastDollar + 1);
+            // ignore anonymous inner class
+            if ((innerChar >= '0') && (innerChar <= '9'))
+                return null;
+        }
+
+        return result;
+    }
+
+    /**
+     * This method checks and transforms the filename of a potential {@link Class} given by <code>fileName</code>.
+     *
+     * @param fileName
+     *        is the filename.
+     * @return the according Java {@link Class#getName() class-name} for the given <code>fileName</code> if it is a
+     *         class-file that is no anonymous {@link Class}, else <code>null</code>.
+     */
+    private static String filenameToClassname(String fileName)
+    {
+        // class file ?
+        if (fileName.toLowerCase().endsWith(".class"))
+            // remove ".class" extension and fix classname
+            return fixClassName(fileName.substring(0, fileName.length() - 6));
+
+        return null;
+    }
+
+    private static void addClassFileName(String fileName, Set<String> classSet, String prefix)
+    {
+        final String simpleClassName = filenameToClassname(fileName);
+
+        if (simpleClassName != null)
+            classSet.add(prefix + simpleClassName);
+    }
+
+    /**
+     * Search for all classes in JAR file
+     *
+     * @throws IOException
+     */
+    private static Set<String> findClassNamesInJAR(String fileName) throws IOException
+    {
+        final Set<String> classes = new HashSet<>();
+
+        try (final JarFile jarFile = new JarFile(fileName))
+        {
+            final Enumeration<JarEntry> entries = jarFile.entries();
+
+            while (entries.hasMoreElements())
+            {
+                final JarEntry jarEntry = entries.nextElement();
+
+                if (!jarEntry.isDirectory())
+                    addClassFileName(jarEntry.getName(), classes, "");
+            }
+        }
+
+        return classes;
+    }
+
+    // NEW: Safe ClassLoader cleanup utility
+    private static void closeClassLoaderSafely(URLClassLoader classLoader, String jarName) {
+        if (classLoader == null) return;
+
+        try {
+            classLoader.close();
+            System.out.println("WARNING: Closed ClassLoader for " + jarName + " (no valid processors)");
+
+            // Remove from active list if it was added
+            activeClassLoaders.remove(classLoader);
+        } catch (IOException e) {
+            System.err.println("WARNING: Failed to close ClassLoader for " + jarName + ": " + e.getMessage());
+        }
+    }
 
     // NEW: Helper method to check if ServiceLoader file exists
     private static boolean hasServiceLoaderFile(File jarFile, String serviceFilePath) {
@@ -569,12 +747,20 @@ private static void loadExtensions() throws IOException {
         try {
             String id = processor.getId();
             if (id == null || id.trim().isEmpty()) {
+                System.err.println("ERROR: INVALID PROCESSOR: Missing or empty ID");
                 return false;
             }
 
             // Check duplicates using original IDs
-            return resourceProcessors.stream()
-                    .noneMatch(existing -> existing.getId().equals(id));
+            Optional<Processor> existingProcessor = resourceProcessors.stream()
+                .filter(existing -> existing.getId().equalsIgnoreCase(id))
+                .findFirst();
+
+            if (existingProcessor.isPresent()) {
+                System.err.println("\n Skipping DUPLICATE PROCESSOR ID: '" + id + "'");
+                return false;
+            }
+            return true;
         } catch (Exception e) {
             return false;
         }
