@@ -1,4 +1,4 @@
-# SGDK 2.10 (March 2025)
+# SGDK 2.11 (April 2025)
 #### Copyright 2025 Stephane Dallongeville
 Github: https://github.com/Stephane-D/SGDK<br>
 Patreon: https://www.patreon.com/SGDK
@@ -37,7 +37,7 @@ Then when you feel ready you can go further and finally install SGDK :)
 You can find installation instructions and tutorials about how use SGDK on the wiki:<br>
 https://github.com/Stephane-D/SGDK/wiki
 
-SGDK also comes with doxygen documentation (generated from .h header files) which provides descriptions about all SGDK structures and functions:<br>
+SGDK also comes with an online doxygen documentation (generated from .h header files) which provides descriptions for all SGDK structures and functions:<br>
 http://stephane-d.github.io/SGDK/
 
 It's important to know that SGDK heavily relies on _resources_ which are compiled through the _rescomp_ tool. You should read the [rescomp.txt](https://raw.githubusercontent.com/Stephane-D/SGDK/master/bin/rescomp.txt) file to understand **which kind of resources you can use and how to declare them**. Then you can look at the *'sample'* folder from SGDK and, in particular, the [sonic sample](https://github.com/Stephane-D/SGDK/tree/master/sample/game/sonic) which is a good showcase of SGDK usage in general (functions and resources).
@@ -56,7 +56,7 @@ https://www.youtube.com/watch?v=BnGqc5OTTY4&list=PL1xqkpO_SvY2_rSwHTBIBxXMqmek--
 
 ### USEFUL TOOLS
 
-Here's a list of useful tools to help you creating your assets:
+Here's a list of useful tools that will help you to create your assets:
 
 #### Pixel art / Sprite
 
@@ -69,6 +69,7 @@ Here's a list of useful tools to help you creating your assets:
 #### Map / Level
 
 * [16Tile](https://allone-works.itch.io/16tile): SGDK specific tile map editor
+* [PNGPalPrio4SGDK](https://github.com/Rahzelk/pngpalprio4sgdk): SGDK specific PNG image editor letting you to setup the tile palette index and priority information easily
 * [Tiled](https://www.mapeditor.org/): Tile map editor, supported by SGDK resource compiler tool
 * [LDTK](https://deepnight.net/tools/ldtk-2d-level-editor/): New but powerful tile map editor (support Tiled formats as well)
 * [Ogmo](https://ogmo-editor-3.github.io/): Another nice and simple tile map editor
@@ -117,17 +118,16 @@ https://github.com/SONIC3D/gendev-macos
 
 ### DOCKER
 
-SGDK doesn't provide anymore any integrated Docker solution as the Doragasu docker solution is just better, faster and simpler to use (native linux compiler):<br>
+SGDK doesn't provide anymore any integrated Docker solution as the Doragasu docker solution seems better, faster and simpler to use (native linux compiler):<br>
 https://gitlab.com/doragasu/docker-sgdk
  
 ### VS CODE
 
-Almost everyone is now using VSCode editor and the nice extension made by zerasul called *Genesis-Code* makes SGDK integration even smoother:<br>
+Almost everyone now use VSCode editor and the nice extension made by zerasul called *Genesis-Code* makes SGDK integration even smoother:<br>
 https://marketplace.visualstudio.com/items?itemName=zerasul.genesis-code
-Just install and setup it (the SGDK and Gens emulator paths mainly) and you're ready to use it !<br>
-Type *Genesis* in the command palette (Ctrl+Shift+P shortcut) to see all commands supported by the extension :)
-SGDK also now integrates a VSCode template located in _project/template_ folders so you can just create a copy of this folder (for instance _project/test_) and open it in VSCode to start your own project.<br>
-You should have auto-completion for SGDK methods and be able to build your project using Ctrl+F9 if you properly setup the *Genesis-Code* extension.
+Just install and setup it as it's detailled on the extension page ('GDK/SGDK' and 'Gens' emulator paths mainly) and you're ready to use it :)<br>
+You can type *>Genesis* in the command palette (Ctrl+Shift+P shortcut) to see all commands supported by the extension.<br>
+SGDK also now integrates a VSCode template located in _project/template_ folder so you can just create a copy of this folder (for instance _project/test_) and open it in VSCode to start your own project.
 
 ### AWS
 
@@ -138,21 +138,23 @@ https://community.aws/content/2hZInsYwWX8cYEAIFKquutVoYQj/how-to-build-retro-gam
  
 ## SUPPORT SGDK
 
-SGDK is completly free but you can support it on Patreon: https://www.patreon.com/SGDK
+SGDK is free but you can support it on Patreon: https://www.patreon.com/SGDK
 
 ## THANKS
 
 - Doragasu for the multi-tasking engine (based on Sik implementation), MegaWifi, flash save support, docker and others nice additions.
+- Turasio and PaCHoN for their great work on MegaWifi Addon.
 - Sik for the multi-tasking base implementation and for all its unvaluable Plutidev Sega Mega Drive technical information source. 
 - Chilly Willy for making almost all the JOY / controller support in SGDK (and the joy test sample ^^).
-- Vladikcomper for the powerful error handler capable of displaying human readable backtrace informations :)
+- Vladikcomper for the advanced error handler capable of displaying human readable backtrace informations :)
 - Astrofra for the starfield donut sample and the revamped readme ;)
 - Gunpog for making the 'cute' SGDK logo.
-- Adrian Spoz for making the 'profesionnal' SGDK logo.
+- Adrian Spoz for making the 'professional' SGDK logo.
 - Vojtěch Salajka for the script allowing to use SGDK easily from Wine (Linux/Unix but may work on OSX too).
 - Andy Grind for the MarsDev project allowing to use SGDK on any OS and also supporting 32X dev.
 - Sonic3D for the GenDev OSX port of SGDK.
 - Andreas Dietrich for the nice Wobbler & scaling effect samples.
+- werton for the numerous fixes / contributions.
 - clbr for various contributions.
 - jgyllinsky for providing / improving build batches.
 - nolddor for fixes / contributions.
@@ -213,3 +215,5 @@ Demons of Asteborg [Neofid Studios](https://neofid-studios.com/)
 * [ThunderCats MD](https://github.com/mxfolken/thundercats_megadrive) by Rolando Fernández Benavidez.
 * [Travel](https://www.pouet.net/prod.php?which=65975) by Resistance
 * [Wacky Willy Weiner Sausage Surfer](https://globalgamejam.org/2017/games/wacky-willy-weiner-sausage-surfer) made for the GGJ 2017
+
+
