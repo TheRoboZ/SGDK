@@ -50,12 +50,13 @@ import sgdk.rescomp.resource.internal.SpriteAnimation;
 import sgdk.rescomp.resource.internal.SpriteFrame;
 import sgdk.rescomp.resource.internal.VDPSprite;
 import sgdk.rescomp.type.Basics.Compression;
+import sgdk.rescomp.type.TMX;
 import sgdk.tool.FileUtil;
 import sgdk.tool.StringUtil;
 
 public class Compiler
 {
-    private final static String EXT_JAR_NAME = "rescomp_ext.jar";
+    private final static String EXT_JAR_POSTFIX = "_ext.jar";
     // private final static String REGEX_LETTERS = "[a-zA-Z]";
     // private final static String REGEX_ID = "\\b([A-Za-z][A-Za-z0-9_]*)\\b";
 
@@ -96,11 +97,11 @@ public class Compiler
     public final static Set<String> resourcesFile = new HashSet<>();
 
     public static boolean extensionsLoaded = false;
-    
-    // TODO: set that to false on release 
+
+    // TODO: set that to false on release
     public static boolean DAGame = false;
 
-    public static boolean compile(String fileName, String fileNameOut, boolean header, String depTarget)
+    public static boolean compile(String fileName, String fileNameOut, boolean asm, boolean header, String depTarget)
     {
         // get application directory
         // currentDir = new File("").getAbsolutePath();
@@ -131,7 +132,7 @@ public class Compiler
         int align = -1;
         boolean group = true;
         boolean near = false;
-
+        
         // process input resource file line by line
         for (String l : lines)
         {
@@ -189,6 +190,9 @@ public class Compiler
             }
         }
 
+        // Cross-checking all SObjects and resolving object field references
+        TMX.TMXObjects.resolveObjectsReferencesInResourceList(resourcesList);
+     
         // separate output
         System.out.println();
 
@@ -207,7 +211,7 @@ public class Compiler
             headerName += "_" + FileUtil.getFileName(fileNameOut, false);
             headerName = headerName.toUpperCase();
 
-            outH.append("#include <genesis.h>\n");            
+            outH.append("#include <genesis.h>\n\n");
             outH.append("#ifndef _" + headerName + "_H_\n");
             outH.append("#define _" + headerName + "_H_\n\n");
 
@@ -251,7 +255,8 @@ public class Compiler
 
             // get all non BIN resources
             final List<Resource> nonBinResources = getNonBinResources();
-            // get non BIN resources for VDPSprite and Collision (they can be compressed as binary data doesn't store any pointer/reference)
+            // get non BIN resources for VDPSprite and Collision (they can be compressed as binary data doesn't store
+            // any pointer/reference)
             final List<Resource> vdpSpriteResources = getResources(VDPSprite.class);
             final List<Resource> collisionResources = getResources(Collision.class);
 
@@ -385,9 +390,12 @@ public class Compiler
         try
         {
             // save .s file
-            out = new BufferedWriter(new FileWriter(fileNameOut));
-            out.write(outS.toString());
-            out.close();
+            if (asm)
+            {
+	            out = new BufferedWriter(new FileWriter(fileNameOut));
+	            out.write(outS.toString());
+	            out.close();
+            }
             // save .h file
             if (header)
             {
@@ -414,59 +422,116 @@ public class Compiler
         return true;
     }
 
-    private static void loadExtensions() throws IOException
-    {
-        final File rescompExt = StringUtil.isEmpty(resDir) ? new File(EXT_JAR_NAME) : new File(resDir, EXT_JAR_NAME);
+	private static void loadExtensions() throws IOException
+	{
+	    // Determine the directory to scan
+	    final File jarDir = StringUtil.isEmpty(resDir) ? new File(".") : new File(resDir);
+	
+	    // get all files in the directory ended with "_ext.jar"
+	    final File[] jarFiles = jarDir.listFiles((dir, name) -> name.toLowerCase().endsWith(EXT_JAR_POSTFIX));
+	
+	    // no extensions found? --> return
+	    if (jarFiles == null || jarFiles.length == 0)
+	        return;
 
-        // found an extension ?
-        if (rescompExt.exists())
-        {
-            // build the class loader
-            final URLClassLoader classLoader = new URLClassLoader(new URL[] {rescompExt.toURI().toURL()}, Compiler.class.getClassLoader());
-
-            try
-            {
-                // get all classes from JAR file
-                for (String className : findClassNamesInJAR(rescompExt.getAbsolutePath()))
-                {
-                    try
-                    {
-                        // try to load class
-                        final Class<?> clazz = classLoader.loadClass(className);
-
-                        try
-                        {
-                            // is a processor class ?
-                            final Class<? extends Processor> processorClass = clazz.asSubclass(Processor.class);
-                            // create the processor
-                            final Processor processor = processorClass.newInstance();
-
-                            // and add to processor list
-                            resourceProcessors.add(processor);
-
-                            System.out.println("Extension '" + processor.getId() + "' loaded.");
-                        }
-                        catch (Throwable t)
-                        {
-                            // not a processor --> ignore
-                        }
-                    }
-                    catch (UnsupportedClassVersionError e)
-                    {
-                        System.err.println("Class '" + className + "' cannot be loaded: newer java required.");
-                    }
-                    catch (Throwable t)
-                    {
-                        System.err.println("Class '" + className + "' cannot be loaded:" + t.getMessage());
-                    }
-                }
-            }
-            finally
-            {
-                classLoader.close();
-            }
-        }
-    }
+	    // process all JAR files
+	    for (File jarFile : jarFiles)
+	    {
+	        // JAR file not readable? --> continue to next file
+	        if (!jarFile.canRead())
+	        {
+	            System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. JAR file is not readable.");
+	            continue;
+	        }
+	
+	        // create class loader for this specific JAR
+	        @SuppressWarnings("resource")
+	        final URLClassLoader classLoader = new URLClassLoader(new URL[]{jarFile.toURI().toURL()},
+	                                       Compiler.class.getClassLoader());
+		
+	        try 
+	        {
+	            // iterate through all classes from a JAR file
+	            for (String className : findClassNamesInJAR(jarFile.getAbsolutePath())) 
+	            {
+	                // catch for ClassNotFoundException
+	                try 
+	                {
+	                    // try to load class
+	                    final Class<?> clazz = classLoader.loadClass(className);
+	
+	                    try 
+	                    {
+	                        // is it a processor class?
+	                        final Class<? extends Processor> processorClass = clazz.asSubclass(Processor.class);
+	
+	                        // create the processor
+	                        final Processor processor = processorClass.newInstance();
+	
+	                        // getId() return null? --> skip this processor
+	                        final String processorId = processor.getId();
+	                        if (processorId == null)
+	                        {
+	                            System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. Class '" + className + "' returned null from getId().");
+	                            continue;
+	                        }
+	
+	                        // is processor already loaded?
+	                        final boolean isProcessorExists = resourceProcessors.stream()
+	                            .anyMatch(otherProcessor -> processorId.equals(otherProcessor.getId())); 
+	                        
+	                        // processor exist? --> skip this processor
+	                        if (isProcessorExists) 
+	                        {
+	                            System.out.println("WARNING: Extension: '" + jarFile.getName() + "' loading skiped. Resource type: '" + processorId + "' already exists!");
+	                            continue;
+	                        }
+	                        
+	                        // everything is OK, add processor to processor list
+	                        resourceProcessors.add(processor);
+	                        System.out.println("Extension: '" + jarFile.getName() + "' loaded. '" + processorId + "' resource type support added.");
+	                    }
+	                    catch (ClassCastException e)
+	                    {
+	                        // not a Processor subclass --> expected, skip silently
+	                    }
+	                    catch (InstantiationException | IllegalAccessException e)
+	                    {
+	                        // abstract class or no public no-arg constructor --> extension developer error, log and continue
+	                        System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. Class '" + className + " is a Processor but cannot be instantiated: " + e.getMessage());
+	                    }
+	                    catch (ExceptionInInitializerError e)
+	                    {
+	                        // static initializer of the class threw an exception --> extension developer error, log and continue
+	                        System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. Class '" + className + " failed static initialization: " + e.getCause());
+	                    }
+	                }
+	                catch (ClassNotFoundException e)
+	                {
+	                    // missing dependency class in the JAR --> skip silently, this is expected, continue
+	                }
+	                catch (UnsupportedClassVersionError e) 
+	                {
+	                	// class version error --> extension developer error, log and continue
+	                    System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. Class '" + className + " cannot be loaded: newer java required.");
+	                } 
+	                catch (Throwable t) 
+	                {
+	                    // any other class loading error (LinkageError, etc.) --> extension developer error, log and continue
+	                    System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. Class '" + className + " cannot be loaded: " + t.getMessage());
+	                }
+	            }
+	        } 
+	        catch (Exception e) 
+	        {
+	            System.err.println("WARNING: Extension: '" + jarFile.getName() + "' loading failed. Error processing JAR file: " + e.getMessage());
+	        } 
+	        finally 
+	        {
+	            classLoader.close();
+	        }
+	    }
+	}
 
     /**
      * This method checks and transforms the filename of a potential {@link Class} given by <code>fileName</code>.<br>
@@ -800,7 +865,7 @@ public class Compiler
                 if (resourceType.equalsIgnoreCase(rp.getId()))
                     return rp;
         }
-        
+
         return null;
     }
 }
