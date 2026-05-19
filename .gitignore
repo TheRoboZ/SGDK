@@ -45,3 +45,9 @@ tools/lz4w/lz4w.jar
 tools/rescomp/format
 tools/rescomp/rescomp.jar
 tools/xgm rom builder
+project/test
+tools/.gradle/
+tools/.project
+tools/build/
+wip.txt
+.github/copilot-instructions.md
