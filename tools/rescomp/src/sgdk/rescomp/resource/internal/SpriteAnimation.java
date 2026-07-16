@@ -16,6 +16,7 @@ import sgdk.rescomp.resource.Bin;
 import sgdk.rescomp.tool.Util;
 import sgdk.rescomp.type.Basics.CollisionType;
 import sgdk.rescomp.type.Basics.Compression;
+import sgdk.rescomp.type.SpriteCell;
 import sgdk.rescomp.type.SpriteCell.OptimizationLevel;
 import sgdk.rescomp.type.SpriteCell.OptimizationType;
 import sgdk.tool.ImageUtil;
@@ -40,7 +41,7 @@ public class SpriteAnimation extends Resource
      * @param showCuttingResult
      */
     public SpriteAnimation(String id, byte[] image8bpp, int w, int h, int animIndex, int wf, int hf, int[] time, CollisionType collision, Compression compression,
-            boolean fastFormat, OptimizationType optType, OptimizationLevel optLevel, boolean optDuplicate)
+            boolean fastFormat, int basePal, OptimizationType optType, OptimizationLevel optLevel, boolean optDuplicate)
     {
         super(id);
 
@@ -96,18 +97,34 @@ public class SpriteAnimation extends Resource
                 }
             }
             
+            // palette usage for this frame (fast format only, mask based sprite cutting re-use is palette dependent)
+            final int framePalMask = fastFormat ? ImageUtil.getUsedSpritePalettes(frameImage) : 0;
+            final boolean multiPalFrame = (framePalMask & (framePalMask - 1)) != 0;
+
             // try to search for a duplicated sprite mask so we can re-use the previous sprite cutting
-            SpriteFrame frame = findMatchingSpriteFrameMask(frameImage, frameBounds.getSize());
+            // (not for multi palette frame as its cutting depends on the palette regions, not only on the opacity mask)
+            SpriteFrame frame = multiPalFrame ? null : findMatchingSpriteFrameMask(frameImage, frameBounds.getSize());
             // found it ?
             if (frame != null)
             {
-            	// create sprite frame ('timer' is augmented by number of duplicate) and re-use previous sprite cutting
-            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, fastFormat, frame.getSprites());
+            	// re-use previous sprite cutting
+            	final List<SpriteCell> cells = frame.getSprites();
+
+            	// re-tag the palette delta for the current frame (the donor frame may use a different palette row)
+            	if (fastFormat && (framePalMask != 0))
+            	{
+            	    final int delta = Integer.numberOfTrailingZeros(framePalMask) - basePal;
+            	    for (SpriteCell cell : cells)
+            	        cell.pal = delta;
+            	}
+
+            	// create sprite frame ('timer' is augmented by number of duplicate)
+            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, fastFormat, basePal, cells);
             }
             else
             {
             	// create sprite frame ('timer' is augmented by number of duplicate)
-            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, fastFormat, optType, optLevel);
+            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, fastFormat, basePal, optType, optLevel);
             }
             // add as internal resource (get duplicate if exist)
             frame = (SpriteFrame) addInternalResource(frame);

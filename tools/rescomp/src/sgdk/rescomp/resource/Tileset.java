@@ -256,6 +256,65 @@ public class Tileset extends Resource
         hc = bin.hashCode();
     }
 
+    /**
+     * Sprite frame tileset with a specific source image per sprite cell (fast sprite engine multi palette support:
+     * each cell uses the image masked to its own palette so tile data never mixes palettes)
+     */
+    public Tileset(String id, byte[][] cellImages8bpp, int imageWidth, int imageHeight, List<? extends Rectangle> sprites, Compression compression, boolean temp)
+    {
+        super(id);
+
+        tiles = new ArrayList<>();
+        tileIndexesMap = new HashMap<>();
+        tileByHashcodeMap = new HashMap<>();
+
+        int ind = 0;
+        for (Rectangle rect : sprites)
+        {
+            final byte[] image8bpp = cellImages8bpp[ind++];
+            // get width and height
+            final int widthTile = rect.width / 8;
+            final int heightTile = rect.height / 8;
+
+            // important to respect sprite tile ordering (vertical)
+            for (int i = 0; i < widthTile; i++)
+                for (int j = 0; j < heightTile; j++)
+                    add(Tile.getTile(image8bpp, imageWidth, imageHeight, rect.x + (i * 8), rect.y + (j * 8), 8));
+        }
+
+        // build the binary bloc
+        final int[] data = new int[tiles.size() * 8];
+
+        int offset = 0;
+        for (Tile t : tiles)
+        {
+            System.arraycopy(t.data, 0, data, offset, 8);
+            offset += 8;
+        }
+
+        // build BIN (tiles data) with wanted compression
+        final Bin binResource = new Bin(id + "_data", data, compression);
+        // internal
+        binResource.global = false;
+
+        // temporary tileset --> don't store the bin data
+        if (temp)
+        {
+            isDuplicate = false;
+            bin = binResource;
+        }
+        else
+        {
+            // keep track of duplicate bin resource here
+            isDuplicate = findResource(binResource) != null;
+            // add as resource (avoid duplicate)
+            bin = (Bin) addInternalResource(binResource);
+        }
+
+        // compute hash code
+        hc = bin.hashCode();
+    }
+
     public Tileset(String id, byte[] image8bpp, int imageWidth, int imageHeight, List<? extends Rectangle> sprites, Compression compression, boolean temp)
     {
         super(id);

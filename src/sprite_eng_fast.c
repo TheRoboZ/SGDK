@@ -1446,12 +1446,17 @@ NO_INLINE void SPR_update()
             const u16 y = sprite->y;
             s16 num = frame->numSprite;
             const u8* tmplBase = (const u8*) frame->frameVDPSprites;
+            // frame using palette deltas ? (bit 6, see AnimationFrame documentation)
+            const u16 palMode = num & 0x40;
 
             // special case of single VDP sprite with size aligned to sprite size
             // (no offset so hardware flip doesn't need any position adjustment: a single pre-packed entry is stored)
             if (num < 0) num = 1;
             else
             {
+                // isolate number of sprite
+                num &= 0x3F;
+
                 // select the pre-packed stream matching current flip state (streams ordered as TILE_ATTR flip bits: normal, H, V, HV)
                 // done with shifts / adds only as multiply is expensive on 68000
                 const u16 streamSize = num << 3;    // sizeof(FrameVDPSprite) = 8
@@ -1466,16 +1471,38 @@ NO_INLINE void SPR_update()
             // each field only needs a single add (all static parts are pre-composed by rescomp)
             u16* dst = (u16*) vdpSprite;
 
-            while(num--)
+            if (palMode)
             {
-                *dst++ = *tmpl++ + y;               // y position
-                *dst++ = *tmpl++ + vdpSpriteInd++;  // size (pre-shifted) + link
-                *dst++ = *tmpl++ + attr;            // attribut + cumulated tile index offset
-                *dst++ = *tmpl++ + x;               // x position
+                // multi palette frame: templates carry per sprite palette deltas in the attribute word,
+                // the 2 bit palette field addition naturally wraps modulo 4 but its carry has to be kept
+                // out of the priority bit (restored from the base attribute)
+                const u16 prioBit = attr & TILE_ATTR_PRIORITY_MASK;
+
+                while(num--)
+                {
+                    *dst++ = *tmpl++ + y;                                                       // y position
+                    *dst++ = *tmpl++ + vdpSpriteInd++;                                          // size (pre-shifted) + link
+                    *dst++ = ((u16)(*tmpl++ + attr) & ~TILE_ATTR_PRIORITY_MASK) | prioBit;      // attribut + palette delta + cumulated tile index offset
+                    *dst++ = *tmpl++ + x;                                                       // x position
 
 #ifdef SPR_DEBUG
-                logVDPSprite(vdpSpriteInd - 1);
+                    logVDPSprite(vdpSpriteInd - 1);
 #endif // SPR_DEBUG
+                }
+            }
+            else
+            {
+                while(num--)
+                {
+                    *dst++ = *tmpl++ + y;               // y position
+                    *dst++ = *tmpl++ + vdpSpriteInd++;  // size (pre-shifted) + link
+                    *dst++ = *tmpl++ + attr;            // attribut + cumulated tile index offset
+                    *dst++ = *tmpl++ + x;               // x position
+
+#ifdef SPR_DEBUG
+                    logVDPSprite(vdpSpriteInd - 1);
+#endif // SPR_DEBUG
+                }
             }
 
             vdpSprite = (VDPSprite*) dst;

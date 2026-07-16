@@ -50,6 +50,8 @@ public class SpriteCell extends Rectangle implements Comparable<SpriteCell>
     public final OptimizationType opt;
     public final int numTile;
     public int coveredPix;
+    // palette delta relative to the sprite base palette (fast sprite engine multi palette support)
+    public int pal;
 
     public SpriteCell(Rectangle r, OptimizationType opt)
     {

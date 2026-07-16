@@ -960,6 +960,25 @@ public class ImageUtil
     }
 
     /**
+     * Returns the bitmask of palette rows (0-3) used by opaque pixels of the given 8bpp image
+     */
+    public static int getUsedSpritePalettes(byte[] image8bpp)
+    {
+        int result = 0;
+
+        for (byte b : image8bpp)
+        {
+            final int pixel = TypeUtil.unsign(b);
+
+            // opaque pixel ? --> add its palette row to the mask
+            if ((pixel & 0xF) != 0)
+                result |= 1 << ((pixel >> 4) & 3);
+        }
+
+        return result;
+    }
+
+    /**
      * Returns used palette index
      */
     public static int getSpritePaletteIndex(byte[] image8bpp, int imgW, int imgH) throws IllegalArgumentException

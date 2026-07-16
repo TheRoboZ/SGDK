@@ -19,7 +19,16 @@
  * <br>
  * Performance note: a compressed tileset requires a full CPU unpack on <i>every animation frame change</i>
  * (by far the biggest per-frame cost when it happens), prefer compression NONE for frequently animated sprites
- * and keep compression for static / rarely changing ones.
+ * and keep compression for static / rarely changing ones.<br>
+ * <br>
+ * <b>Multi palette sprites</b>: unlike the other sprite engines, a FASTSPRITE resource may use up to 4 palettes
+ * (16 colors rows) in its source image - rescomp detects that automatically and assigns each internal hardware
+ * sprite its own palette (a single hardware sprite cannot mix palettes so rescomp cuts each palette region
+ * separately). Palettes are stored as <i>deltas</i> relative to the sprite base palette (the lowest palette row
+ * used by the image): #SPR_setPalette(..) sets the base palette and all hardware sprites shift together, wrapping
+ * modulo 4 (ex: a 2 palettes sprite set to PAL3 uses PAL3 and PAL0). The exported palette resource contains all
+ * used palette rows (16, 32, 48 or 64 colors, see Palette.length). Priority (#SPR_setPriority(..)) remains global
+ * to the whole sprite.
  */
 
 #if     FAST_SPRITE_ENGINE
@@ -106,7 +115,8 @@ typedef enum
  *  \param sizeAndLink
  *      sprite size (see SPRITE_SIZE macro) pre-shifted in the high byte, link (low byte) is added at runtime
  *  \param attrOffset
- *      cumulated tile index offset for this VDP sprite (added to the sprite base attribute at runtime)
+ *      cumulated tile index offset for this VDP sprite, possibly combined with its palette delta in bits 13-14
+ *      for multi palette sprites (added to the sprite base attribute at runtime)
  *  \param x
  *      X offset for this VDP sprite relative to global Sprite position (flip-adjusted per stream)
  */
@@ -123,8 +133,10 @@ typedef struct
  *      Sprite animation frame structure (fast sprite engine format).
  *
  *  \param numSprite
- *      number of VDP sprite which compose this frame.
- *      bit 7 is used as a special flag for the sprite engine so always use 'numSprite & 0x7F' to just retrieve the number of sprite
+ *      number of VDP sprite which compose this frame (bits 0-5).<br>
+ *      bit 7 = optimized single VDP sprite frame (single template entry stored)<br>
+ *      bit 6 = frame uses per hardware sprite palette deltas (multi palette sprite)<br>
+ *      always use 'numSprite & 0x3F' to just retrieve the number of sprite
  *  \param timer
  *      active time for this frame (in 1/60 of second)
  *  \param tileset
@@ -544,6 +556,9 @@ void SPR_setVFlip(Sprite* sprite, bool value);
  *      Sprite to set attribut for
  *  \param value
  *      The palette index to use for this sprite (PAL0, PAL1, PAL2 or PAL3)
+ *
+ *  For a multi palette sprite this sets the <i>base</i> palette: all its hardware sprites shift together
+ *  keeping their relative palette deltas, wrapping modulo 4 (ex: a 2 palettes sprite set to PAL3 uses PAL3 and PAL0).
  */
 void SPR_setPalette(Sprite* sprite, u16 value);
 /**

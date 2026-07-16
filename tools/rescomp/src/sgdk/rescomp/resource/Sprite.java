@@ -73,15 +73,36 @@ public class Sprite extends Resource
         final int h = image.length / w;
 
         final int palIndex;
-        try
+        final int numPal;
+
+        // fast format supports multi palette sprites: auto-detect the used palette rows from the pixel data
+        if (fastFormat)
         {
-            // get palette index used (only 1 palette allowed for sprite)
-            palIndex = ImageUtil.getSpritePaletteIndex(image, w, h);
+            final int palMask = ImageUtil.getUsedSpritePalettes(image);
+            final int minPal = (palMask != 0) ? Integer.numberOfTrailingZeros(palMask) : 0;
+            final int maxPal = (palMask != 0) ? (31 - Integer.numberOfLeadingZeros(palMask)) : 0;
+
+            palIndex = minPal;
+            numPal = (maxPal - minPal) + 1;
+
+            if (numPal > 1)
+                System.out.println("FASTSPRITE '" + id + "' uses " + numPal + " palettes (rows " + minPal + " to " + maxPal
+                        + "), palette deltas are relative to base palette / row " + minPal);
         }
-        catch (IllegalArgumentException e)
+        else
         {
-            throw new IllegalArgumentException(
-                    "'" + imgFile + "' SPRITE resource use more than 1 palette (16 colors), use 4bpp indexed colors image instead if you are unsure.", e);
+            try
+            {
+                // get palette index used (only 1 palette allowed for sprite)
+                palIndex = ImageUtil.getSpritePaletteIndex(image, w, h);
+            }
+            catch (IllegalArgumentException e)
+            {
+                throw new IllegalArgumentException(
+                        "'" + imgFile + "' SPRITE resource use more than 1 palette (16 colors), use 4bpp indexed colors image instead if you are unsure.", e);
+            }
+
+            numPal = 1;
         }
         // get size in tile
         final int wt = w / 8;
@@ -93,8 +114,8 @@ public class Sprite extends Resource
         if ((ht % hf) != 0)
             throw new IllegalArgumentException("Error: '" + imgFile + "' height (" + h + ") is not a multiple of cell height (" + (hf * 8) + ").");
 
-        // build PALETTE
-        palette = (Palette) addInternalResource(new Palette(id + "_palette", imgFile, palIndex * 16, 16, true));
+        // build PALETTE (span all used palette rows for multi palette sprite)
+        palette = (Palette) addInternalResource(new Palette(id + "_palette", imgFile, palIndex * 16, numPal * 16, true));
 
         // for debug purpose (scale image x2 so it's easier to see bounding boxes)
         final BufferedImage bufImg = ImageUtil.scale(ImageUtil.load(imgFile), w * 2 , h * 2, false);
@@ -108,7 +129,7 @@ public class Sprite extends Resource
         for (int i = 0; i < numAnim; i++)
         {
             // build sprite animation
-            SpriteAnimation animation = new SpriteAnimation(id + "_animation" + i, image, wt, ht, i, wf, hf, time[Math.min(time.length - 1, i)], collision, compression, fastFormat, optType, optLevel, optDuplicate);
+            SpriteAnimation animation = new SpriteAnimation(id + "_animation" + i, image, wt, ht, i, wf, hf, time[Math.min(time.length - 1, i)], collision, compression, fastFormat, palIndex, optType, optLevel, optDuplicate);
 
             // check if empty
             if (!animation.isEmpty())
