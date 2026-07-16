@@ -62,6 +62,18 @@ public class VDPSprite extends Resource
         outS.append("    dc.w    " + ((offsetXFlip << 8) | (((ht * wt) << 0) & 0xFF)) + "\n");
     }
 
+    void internalOutFastS(StringBuilder outS, int tileOffset, boolean hflip, boolean vflip)
+    {
+        // pre-packed SAT entry template for the fast sprite engine, stored in SAT field order
+        // so building a SAT entry at runtime only requires a single add per field:
+        // y offset, size pre-shifted in high byte (link added at runtime),
+        // cumulated tile index offset (sprite base attribute added at runtime), x offset
+        outS.append("    dc.w    " + (vflip ? offsetYFlip : offsetY) + "\n");
+        outS.append("    dc.w    " + (getFormattedSize() << 8) + "\n");
+        outS.append("    dc.w    " + tileOffset + "\n");
+        outS.append("    dc.w    " + (hflip ? offsetXFlip : offsetX) + "\n");
+    }
+
     @Override
     public int internalHashCode()
     {

@@ -40,7 +40,7 @@ public class SpriteAnimation extends Resource
      * @param showCuttingResult
      */
     public SpriteAnimation(String id, byte[] image8bpp, int w, int h, int animIndex, int wf, int hf, int[] time, CollisionType collision, Compression compression,
-            OptimizationType optType, OptimizationLevel optLevel, boolean optDuplicate)
+            boolean fastFormat, OptimizationType optType, OptimizationLevel optLevel, boolean optDuplicate)
     {
         super(id);
 
@@ -102,12 +102,12 @@ public class SpriteAnimation extends Resource
             if (frame != null)
             {
             	// create sprite frame ('timer' is augmented by number of duplicate) and re-use previous sprite cutting
-            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, frame.getSprites());
+            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, fastFormat, frame.getSprites());
             }
             else
             {
             	// create sprite frame ('timer' is augmented by number of duplicate)
-            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, optType, optLevel);
+            	frame = new SpriteFrame(id + "_frame" + i, frameImage, wf, hf, time[Math.min(time.length - 1, i)] * (duplicate + 1), collision, compression, fastFormat, optType, optLevel);
             }
             // add as internal resource (get duplicate if exist)
             frame = (SpriteFrame) addInternalResource(frame);
