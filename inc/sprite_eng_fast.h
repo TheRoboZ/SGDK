@@ -15,7 +15,11 @@
  *   flip computation and a minimal amount of work per hardware sprite<br>
  * <br>
  * IMPORTANT: this engine requires resources exported with the rescomp <b>FASTSPRITE</b> resource type,
- * the classic SPRITE resource data layout is NOT compatible (and vice-versa).
+ * the classic SPRITE resource data layout is NOT compatible (and vice-versa).<br>
+ * <br>
+ * Performance note: a compressed tileset requires a full CPU unpack on <i>every animation frame change</i>
+ * (by far the biggest per-frame cost when it happens), prefer compression NONE for frequently animated sprites
+ * and keep compression for static / rarely changing ones.
  */
 
 #if     FAST_SPRITE_ENGINE
