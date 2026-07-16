@@ -9,7 +9,7 @@
  * and the Sega Genesis VDP sprite capabilities (see vdp_spr.h file for more info).
  */
 
-#if     !LEGACY_SPRITE_ENGINE
+#if     !LEGACY_SPRITE_ENGINE && !FAST_SPRITE_ENGINE
 
 #ifndef _SPRITE_ENG_H_
 #define _SPRITE_ENG_H_

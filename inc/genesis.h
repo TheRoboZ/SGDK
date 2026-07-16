@@ -38,6 +38,7 @@
 #include "bmp.h"
 #include "sprite_eng.h"
 #include "sprite_eng_legacy.h"
+#include "sprite_eng_fast.h"
 
 #include "z80_ctrl.h"
 #include "ym2612.h"

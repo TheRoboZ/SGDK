@@ -82,6 +82,20 @@
 #define LEGACY_SPRITE_ENGINE    0
 
 /**
+ *  \brief
+ *      Set it to 1 if you want to use the fast / streamlined sprite engine instead of the default one.<br>
+ *      The fast sprite engine is based on the default one but drops some features to improve performance:<br>
+ *      no collision structures, whole (meta) sprite visibility computation only and no delayed frame update on DMA saturation.<br>
+ *      IMPORTANT: it requires sprite resources exported with the rescomp <b>FASTSPRITE</b> resource type
+ *      (classic SPRITE resource data layout is not compatible).
+ */
+#define FAST_SPRITE_ENGINE      0
+
+#if (LEGACY_SPRITE_ENGINE && FAST_SPRITE_ENGINE)
+#error "LEGACY_SPRITE_ENGINE and FAST_SPRITE_ENGINE cannot be enabled at same time (see config.h)"
+#endif
+
+/**
  * \brief
  *      Set it to 1 to use the original SGDK's error handling screen and vectors.<br>
  *      Otherwise error handler from the MD Debugger project is used, which supports source code symbols with "debug" build proifle and backtrace.<br>

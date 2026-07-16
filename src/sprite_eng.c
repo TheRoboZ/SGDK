@@ -1,7 +1,7 @@
 #include "config.h"
 #include "types.h"
 
-#if      !LEGACY_SPRITE_ENGINE
+#if      !LEGACY_SPRITE_ENGINE && !FAST_SPRITE_ENGINE
 
 #include "sprite_eng.h"
 
