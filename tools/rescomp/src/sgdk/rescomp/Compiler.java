@@ -24,7 +24,6 @@ import java.util.jar.JarFile;
 import sgdk.rescomp.processor.AlignProcessor;
 import sgdk.rescomp.processor.BinProcessor;
 import sgdk.rescomp.processor.BitmapProcessor;
-import sgdk.rescomp.processor.FastSpriteProcessor;
 import sgdk.rescomp.processor.ImageProcessor;
 import sgdk.rescomp.processor.MapProcessor;
 import sgdk.rescomp.processor.NearProcessor;
@@ -80,7 +79,6 @@ public class Compiler
         resourceProcessors.add(new ObjectsProcessor());
         resourceProcessors.add(new ImageProcessor());
         resourceProcessors.add(new SpriteProcessor());
-        resourceProcessors.add(new FastSpriteProcessor());
         resourceProcessors.add(new WavProcessor());
         resourceProcessors.add(new XgmProcessor());
         resourceProcessors.add(new Xgm2Processor());

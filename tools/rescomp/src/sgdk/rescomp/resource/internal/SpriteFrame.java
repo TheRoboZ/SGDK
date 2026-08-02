@@ -28,8 +28,6 @@ public class SpriteFrame extends Resource
     public final Collision collision;
     public final Tileset tileset;
     public final int timer;
-    // fast sprite engine format (no collision, pre-packed VDP sprite templates)
-    public final boolean fastFormat;
 
     final int hc;
 
@@ -40,7 +38,7 @@ public class SpriteFrame extends Resource
     final Compression compression;
     final int fhc;
 
-    public SpriteFrame(String id, byte[] frameImage8bpp, int wf, int hf, int timer, CollisionType collisionType, Compression compression, boolean fastFormat, int basePal, List<SpriteCell> sprites)
+    public SpriteFrame(String id, byte[] frameImage8bpp, int wf, int hf, int timer, CollisionType collisionType, Compression compression, List<SpriteCell> sprites)
     {
         super(id);
 
@@ -48,10 +46,9 @@ public class SpriteFrame extends Resource
         this.timer = timer;
         this.collisionType = collisionType;
         this.compression = compression;
-        this.fastFormat = fastFormat;
         this.frameImage = frameImage8bpp;
         this.frameDim = new Dimension(wf * 8, hf * 8);
-        this.fhc = computeFastHashcode(frameImage8bpp, frameDim, timer, collisionType, compression) ^ (fastFormat ? 0x55AA55AA : 0);
+        this.fhc = computeFastHashcode(frameImage8bpp, frameDim, timer, collisionType, compression);
 
         // empty frame --> empty tileset
         if (sprites.isEmpty())
@@ -64,42 +61,20 @@ public class SpriteFrame extends Resource
         else
         {
             int optNumTile = 0;
-            boolean multiPal = false;
             for (SpriteCell spr : sprites)
-            {
                 optNumTile += spr.numTile;
-                multiPal |= (spr.pal != sprites.get(0).pal);
-            }
 
             // shot info about this sprite frame
             System.out.println("Sprite frame '" + id + "' - " + sprites.size() + " VDP sprites and " + optNumTile + " tiles");
 
-            // frame mixing several palettes ? --> build each cell tiles from the image masked to the cell palette
-            // so tile data never mixes palettes (fast sprite engine multi palette support)
-            if (multiPal)
-            {
-                final byte[][] palImages = new byte[4][];
-                final byte[][] cellImages = new byte[sprites.size()][];
-
-                for (int i = 0; i < sprites.size(); i++)
-                {
-                    final int pal = (sprites.get(i).pal + basePal) & 3;
-
-                    if (palImages[pal] == null)
-                        palImages[pal] = getPaletteMaskedImage(frameImage8bpp, pal);
-                    cellImages[i] = palImages[pal];
-                }
-
-                tileset = (Tileset) addInternalResource(new Tileset(id + "_tileset", cellImages, wf * 8, hf * 8, sprites, compression, false));
-            }
             // build tileset
-            else tileset = (Tileset) addInternalResource(new Tileset(id + "_tileset", frameImage, wf * 8, hf * 8, sprites, compression, false));
+            tileset = (Tileset) addInternalResource(new Tileset(id + "_tileset", frameImage, wf * 8, hf * 8, sprites, compression, false));
         }
 
         final Collision coll;
 
-        // define collision (fast format has no collision structure)
-        if (fastFormat || (collisionType == CollisionType.NONE))
+        // define collision
+        if (collisionType == CollisionType.NONE)
             coll = null;
         else
         {
@@ -133,8 +108,7 @@ public class SpriteFrame extends Resource
         for (SpriteCell sprite : sprites)
             vdpSprites.add(new VDPSprite(id + "_sprite" + ind++, sprite, wf, hf));
 
-        hc = (timer << 16) ^ ((tileset != null) ? tileset.hashCode() : 0) ^ vdpSprites.hashCode() ^ ((collision != null) ? collision.hashCode() : 0)
-                ^ (fastFormat ? 0x55AA55AA : 0);
+        hc = (timer << 16) ^ ((tileset != null) ? tileset.hashCode() : 0) ^ vdpSprites.hashCode() ^ ((collision != null) ? collision.hashCode() : 0);
     }
 
     /**
@@ -148,12 +122,10 @@ public class SpriteFrame extends Resource
      *        height of frame in tile
      * @param showCut
      */
-	public SpriteFrame(String id, byte[] frameImage8bpp, int wf, int hf, int timer, CollisionType collisionType, Compression compression, boolean fastFormat,
-            int basePal, OptimizationType optType, OptimizationLevel optLevel)
+	public SpriteFrame(String id, byte[] frameImage8bpp, int wf, int hf, int timer, CollisionType collisionType, Compression compression,
+            OptimizationType optType, OptimizationLevel optLevel)
     {
-        this(id, frameImage8bpp, wf, hf, timer, collisionType, compression, fastFormat, basePal,
-                fastFormat ? computeSpriteCuttingFast(id, frameImage8bpp, wf, hf, optType, optLevel, basePal)
-                        : computeSpriteCutting(id, frameImage8bpp, wf, hf, optType, optLevel));
+        this(id, frameImage8bpp, wf, hf, timer, collisionType, compression, computeSpriteCutting(id, frameImage8bpp, wf, hf, optType, optLevel));
     }
 
     /**
@@ -167,10 +139,10 @@ public class SpriteFrame extends Resource
      *        height of frame in tile
      */
     public SpriteFrame(String id, byte[] image8bpp, int w, int h, int frameIndex, int animIndex, int wf, int hf, int timer, CollisionType collisionType,
-            Compression compression, boolean fastFormat, int basePal, OptimizationType optType, OptimizationLevel optLevel)
+            Compression compression, OptimizationType optType, OptimizationLevel optLevel)
     {
         this(id, ImageUtil.getSubImage(image8bpp, new Dimension(w * 8, h * 8), new Rectangle((frameIndex * wf) * 8, (animIndex * hf) * 8, wf * 8, hf * 8)), wf,
-                hf, timer, collisionType, compression, fastFormat, basePal, optType, optLevel);
+                hf, timer, collisionType, compression, optType, optLevel);
     }
     
     static List<SpriteCell> computeSpriteCutting(String id, byte[] frameImage8bpp, int wf, int hf, OptimizationType optType, OptimizationLevel optLevel) throws UnsupportedOperationException
@@ -242,77 +214,6 @@ public class SpriteFrame extends Resource
         return sprites;
     }
 
-    /**
-     * Returns a copy of the image keeping only opaque pixels of the given palette row (color index 0-15, palette
-     * row bits stripped), every other pixel becomes fully transparent (0).<br>
-     * The result serves both the sprite cutter (opacity based) and tile data generation (single consistent palette).
-     */
-    static byte[] getPaletteMaskedImage(byte[] image8bpp, int pal)
-    {
-        final byte[] result = new byte[image8bpp.length];
-
-        for (int i = 0; i < image8bpp.length; i++)
-        {
-            final int pixel = image8bpp[i] & 0xFF;
-            final int color = pixel & 0xF;
-
-            result[i] = (byte) ((((pixel >> 4) & 3) == pal) ? color : 0);
-        }
-
-        return result;
-    }
-
-    /**
-     * Palette aware sprite cutting for the fast sprite engine: when the frame uses several palette rows, each row
-     * is cut separately (a hardware sprite can only use a single palette) and cells are tagged with their palette
-     * delta relative to the sprite base palette.
-     */
-    static List<SpriteCell> computeSpriteCuttingFast(String id, byte[] frameImage8bpp, int wf, int hf, OptimizationType optType, OptimizationLevel optLevel,
-            int basePal) throws UnsupportedOperationException
-    {
-        final int palMask = ImageUtil.getUsedSpritePalettes(frameImage8bpp);
-
-        // empty frame or single palette --> classic cutting, just tag the palette delta on all cells
-        if ((palMask & (palMask - 1)) == 0)
-        {
-            final List<SpriteCell> result = computeSpriteCutting(id, frameImage8bpp, wf, hf, optType, optLevel);
-
-            if (palMask != 0)
-            {
-                final int delta = Integer.numberOfTrailingZeros(palMask) - basePal;
-                for (SpriteCell cell : result)
-                    cell.pal = delta;
-            }
-
-            return result;
-        }
-
-        // multi palette frame --> cut each palette region separately (opaque pixel sets are disjoint so
-        // overlapping cells from different palettes render correctly whatever the SAT order)
-        final List<SpriteCell> result = new ArrayList<>();
-
-        for (int pal = 0; pal < 4; pal++)
-        {
-            if ((palMask & (1 << pal)) == 0)
-                continue;
-
-            final List<SpriteCell> cells = computeSpriteCutting(id + "_pal" + pal, getPaletteMaskedImage(frameImage8bpp, pal), wf, hf, optType, optLevel);
-
-            final int delta = pal - basePal;
-            for (SpriteCell cell : cells)
-                cell.pal = delta;
-
-            result.addAll(cells);
-        }
-
-        // above the limit ? --> stop here :-(
-        if (result.size() > 16)
-            throw new UnsupportedOperationException("Sprite frame '" + id + "' uses " + result.size()
-                    + " internal sprites in total over its palette regions, that is above the limit (16), try to reduce the sprite size or split it.");
-
-        return result;
-    }
-
     static int computeFastHashcode(byte[] frameImage8bpp, Dimension frameDim, int timer, CollisionType collision, Compression compression)
     {
         return (timer << 16) ^ ((collision != null) ? collision.hashCode() : 0) ^ Arrays.hashCode(frameImage8bpp) ^ frameDim.hashCode()
@@ -324,12 +225,7 @@ public class SpriteFrame extends Resource
         List<SpriteCell> result = new ArrayList<SpriteCell>();
         
         for(VDPSprite sprite: vdpSprites)
-        {
-        	final SpriteCell cell = new SpriteCell(sprite.offsetX, sprite.offsetY, sprite.wt * 8, sprite.ht * 8, OptimizationType.BALANCED);
-        	// carry the palette delta (fast sprite engine multi palette support)
-        	cell.pal = sprite.pal;
-        	result.add(cell);
-        }
+        	result.add(new SpriteCell(sprite.offsetX, sprite.offsetY, sprite.wt * 8, sprite.ht * 8, OptimizationType.BALANCED));
 
         return result;
     }
@@ -372,8 +268,7 @@ public class SpriteFrame extends Resource
         if (obj instanceof SpriteFrame)
         {
             final SpriteFrame spriteFrame = (SpriteFrame) obj;
-            return (timer == spriteFrame.timer) && (fastFormat == spriteFrame.fastFormat) && tileset.equals(spriteFrame.tileset)
-                    && vdpSprites.equals(spriteFrame.vdpSprites)
+            return (timer == spriteFrame.timer) && tileset.equals(spriteFrame.tileset) && vdpSprites.equals(spriteFrame.vdpSprites)
                     && ((collision == spriteFrame.collision) || ((collision != null) && collision.equals(spriteFrame.collision)));
         }
 
@@ -395,13 +290,6 @@ public class SpriteFrame extends Resource
     @Override
     public int shallowSize()
     {
-        if (fastFormat)
-        {
-            // pre-packed templates: a single entry for the optimized single sprite case, 4 flip variant streams otherwise
-            final int numTemplate = isOptimisable() ? 1 : (vdpSprites.size() * 4);
-            return (numTemplate * 8) + 1 + 1 + 4;
-        }
-
         return (vdpSprites.size() * 6) + 1 + 1 + 4 + 4;
     }
 
@@ -423,58 +311,19 @@ public class SpriteFrame extends Resource
         // AnimationFrame structure
         Util.decl(outS, outH, "AnimationFrame", id, 2, global);
         // number of sprite / timer info
-        int numSprite = isOptimisable() ? 0x81 : getNumSprite();
-        // fast format: mark frame using palette deltas (bit 6) so the sprite engine takes the palette aware path
-        if (fastFormat)
-        {
-            for (VDPSprite sprite : vdpSprites)
-            {
-                if (sprite.pal != 0)
-                {
-                    numSprite |= 0x40;
-                    break;
-                }
-            }
-        }
+        int numSprite = isOptimisable() ? 0x81 : getNumSprite(); 
         outS.append("    dc.w    " + (((numSprite << 8) & 0xFF00) | ((timer << 0) & 0xFF)) + "\n");
         // set tileset pointer
         outS.append("    dc.l    " + tileset.id + "\n");
-
-        // fast sprite engine format: no collision pointer, pre-packed VDP sprite templates
-        if (fastFormat)
-        {
-            // optimized single sprite (no offset) ? --> flip has no effect on position, a single template entry is enough
-            if (isOptimisable())
-                vdpSprites.get(0).internalOutFastS(outS, 0, false, false);
-            else
-            {
-                // 4 template streams, one per flip combination in TILE_ATTR flip bits order: normal, H, V, HV
-                for (int variant = 0; variant < 4; variant++)
-                {
-                    final boolean hflip = (variant & 1) != 0;
-                    final boolean vflip = (variant & 2) != 0;
-
-                    int tileOffset = 0;
-                    for (VDPSprite sprite : vdpSprites)
-                    {
-                        sprite.internalOutFastS(outS, tileOffset, hflip, vflip);
-                        tileOffset += sprite.wt * sprite.ht;
-                    }
-                }
-            }
-        }
+        // set collision pointer
+        if (collision == null)
+            outS.append("    dc.l    " + 0 + "\n");
         else
-        {
-            // set collision pointer
-            if (collision == null)
-                outS.append("    dc.l    " + 0 + "\n");
-            else
-                outS.append("    dc.l    " + collision.id + "\n");
+            outS.append("    dc.l    " + collision.id + "\n");
 
-            // array of VDPSprite
-            for (VDPSprite sprite : vdpSprites)
-                sprite.internalOutS(outS);
-        }
+        // array of VDPSprite
+        for (VDPSprite sprite : vdpSprites)
+            sprite.internalOutS(outS);
 
         outS.append("\n");
     }

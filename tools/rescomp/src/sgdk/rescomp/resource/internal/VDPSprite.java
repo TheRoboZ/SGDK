@@ -18,12 +18,10 @@ public class VDPSprite extends Resource
     public final int ht;
     public final int offsetYFlip;
     public final int offsetXFlip;
-    // palette delta relative to the sprite base palette (fast sprite engine multi palette support)
-    public final int pal;
 
     final int hc;
 
-    public VDPSprite(String id, int offX, int offY, int w, int h, int wf, int hf, int pal)
+    public VDPSprite(String id, int offX, int offY, int w, int h, int wf, int hf)
     {
         super(id);
 
@@ -33,7 +31,6 @@ public class VDPSprite extends Resource
         this.ht = h;
         this.offsetXFlip = (wf * 8) - (offX + (w * 8));
         this.offsetYFlip = (hf * 8) - (offY + (h * 8));
-        this.pal = pal;
 
         if ((offsetX < 0) || (offsetX > 255) || (offsetY < 0) || (offsetY > 255))
             throw new IllegalArgumentException("Error: sprite '" + id + "' offset X / Y is out of range (< 0 or > 255)");
@@ -44,12 +41,12 @@ public class VDPSprite extends Resource
         // "Error: sprite '" + id + "' offset X / Y is out of range (< -128 or > 127)");
 
         // compute hash code
-        hc = (offsetX << 0) ^ (offsetXFlip << 0) ^ (offsetY << 8) ^ (offsetYFlip << 8) ^ (wt << 16) ^ (ht << 24) ^ (pal << 26);
+        hc = (offsetX << 0) ^ (offsetXFlip << 0) ^ (offsetY << 8) ^ (offsetYFlip << 8) ^ (wt << 16) ^ (ht << 24);
     }
 
     public VDPSprite(String id, SpriteCell sprite, int wf, int hf)
     {
-        this(id, sprite.x, sprite.y, sprite.width / 8, sprite.height / 8, wf, hf, sprite.pal);
+        this(id, sprite.x, sprite.y, sprite.width / 8, sprite.height / 8, wf, hf);
     }
 
     public int getFormattedSize()
@@ -65,18 +62,6 @@ public class VDPSprite extends Resource
         outS.append("    dc.w    " + ((offsetXFlip << 8) | (((ht * wt) << 0) & 0xFF)) + "\n");
     }
 
-    void internalOutFastS(StringBuilder outS, int tileOffset, boolean hflip, boolean vflip)
-    {
-        // pre-packed SAT entry template for the fast sprite engine, stored in SAT field order
-        // so building a SAT entry at runtime only requires a single add per field:
-        // y offset, size pre-shifted in high byte (link added at runtime),
-        // palette delta and cumulated tile index offset (sprite base attribute added at runtime), x offset
-        outS.append("    dc.w    " + (vflip ? offsetYFlip : offsetY) + "\n");
-        outS.append("    dc.w    " + (getFormattedSize() << 8) + "\n");
-        outS.append("    dc.w    " + ((pal << 13) | tileOffset) + "\n");
-        outS.append("    dc.w    " + (hflip ? offsetXFlip : offsetX) + "\n");
-    }
-
     @Override
     public int internalHashCode()
     {
@@ -90,7 +75,7 @@ public class VDPSprite extends Resource
         {
             final VDPSprite vdpSprite = (VDPSprite) obj;
             return (offsetX == vdpSprite.offsetX) && (offsetY == vdpSprite.offsetY) && (wt == vdpSprite.wt) && (ht == vdpSprite.ht)
-                    && (offsetXFlip == vdpSprite.offsetXFlip) && (offsetYFlip == vdpSprite.offsetYFlip) && (pal == vdpSprite.pal);
+                    && (offsetXFlip == vdpSprite.offsetXFlip) && (offsetYFlip == vdpSprite.offsetYFlip);
         }
 
         return false;

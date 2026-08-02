@@ -23,14 +23,6 @@ public class SpriteProcessor implements Processor
         return "SPRITE";
     }
 
-    /**
-     * Fast sprite engine resource format (FASTSPRITE): no collision structure and pre-packed VDP sprite templates
-     */
-    protected boolean isFastFormat()
-    {
-        return false;
-    }
-
     @Override
     public Resource execute(String[] fields) throws Exception
     {
@@ -185,36 +177,29 @@ public class SpriteProcessor implements Processor
         int[][] time = new int[][] {{ 0 }};
         if (fields.length >= 7)
             time = StringUtil.parseIntArray2D(fields[6], new int[][] {{ 0 }});
-        // get collision value (FASTSPRITE has no collision argument)
+        // get collision value
         CollisionType collision = CollisionType.NONE;
-        int fieldInd = 7;
-        if (!isFastFormat())
-        {
-            if (fields.length > fieldInd)
-                collision = Util.getCollision(fields[fieldInd]);
-            fieldInd++;
-        }
+        if (fields.length >= 8)
+            collision = Util.getCollision(fields[7]);
         // get optimization value
         OptimizationType opt = OptimizationType.BALANCED;
-        if (fields.length > fieldInd)
-            opt = Util.getSpriteOptType(fields[fieldInd]);
-        fieldInd++;
+        if (fields.length >= 9)
+            opt = Util.getSpriteOptType(fields[8]);
         // get max number of iteration
         OptimizationLevel optLevel = OptimizationLevel.FAST;
         boolean showCut = false;
-        if (fields.length > fieldInd)
+        if (fields.length >= 10)
         {
-            optLevel = Util.getSpriteOptLevel(fields[fieldInd]);
+            optLevel = Util.getSpriteOptLevel(fields[9]);
             showCut = true;
         }
-        fieldInd++;
         boolean optDuplicate = false;
-        if (fields.length > fieldInd)
-            optDuplicate = Boolean.parseBoolean(fields[fieldInd]);
+        if (fields.length >= 11)
+            optDuplicate = Boolean.parseBoolean(fields[10]);
 
         // add resource file (used for deps generation)
         Compiler.addResourceFile(fileIn);
 
-        return new Sprite(id, fileIn, wf, hf, compression, time, collision, isFastFormat(), opt, optLevel, showCut, optDuplicate);
+        return new Sprite(id, fileIn, wf, hf, compression, time, collision, opt, optLevel, showCut, optDuplicate);
     }
 }
