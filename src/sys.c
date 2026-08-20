@@ -22,6 +22,7 @@
 #include "sram.h"
 #include "sprite_eng.h"
 #include "sprite_eng_legacy.h"
+#include "sprite_eng_fast.h"
 #include "task.h"
 
 #include "tools.h"

@@ -17,6 +17,7 @@
 
 #include "sprite_eng.h"
 #include "sprite_eng_legacy.h"
+#include "sprite_eng_fast.h"
 
 
 #define WINDOW_DEFAULT          0xD000      // multiple of 0x1000 (0x0800 in H32)
@@ -807,28 +808,28 @@ void VDP_setWindowVPos(u16 down, u16 pos)
     *pw = 0x9200 | v;
 }
 
-void VDP_setWindowOff() 
+void VDP_setWindowOff()
 {
     VDP_setWindowVPos(false, 0);
     VDP_setWindowHPos(false, 0);
 }
 
-void VDP_setWindowOnTop(u16 rows) 
+void VDP_setWindowOnTop(u16 rows)
 {
     VDP_setWindowVPos(false, rows);
 }
 
-void VDP_setWindowOnBottom(u16 rows) 
+void VDP_setWindowOnBottom(u16 rows)
 {
     VDP_setWindowVPos(true, (screenHeight / 8) - rows);
 }
 
-void VDP_setWindowOnLeft(u16 cols) 
+void VDP_setWindowOnLeft(u16 cols)
 {
     VDP_setWindowHPos(false, cols);
 }
 
-void VDP_setWindowOnRight(u16 cols) 
+void VDP_setWindowOnRight(u16 cols)
 {
     VDP_setWindowHPos(true, (screenWidth / 16) - cols);
 }

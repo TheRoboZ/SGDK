@@ -1,7 +1,7 @@
 #include "config.h"
 #include "types.h"
 
-#if      !LEGACY_SPRITE_ENGINE
+#if      !LEGACY_SPRITE_ENGINE && !FAST_SPRITE_ENGINE
 
 #include "sprite_eng.h"
 
@@ -1974,7 +1974,7 @@ static u16 updateVisibility(Sprite* sprite, u16 status)
                                 visibility |= 1;
 
 #ifdef SPR_DEBUG
-                            KLog_S4("    offx+bx=", (u16)(frameSprite->offsetXFlip + bx), " offy+by=", (u16)(frameSprite->offsetYFlip + by), " mx=", mx, " my=", my);
+                            KLog_S4("    offx+bx=", (u16)(frameSprite->offsetX + bx), " offy+by=", (u16)(frameSprite->offsetYFlip + by), " mx=", mx, " my=", my);
 #endif
 
                             // next

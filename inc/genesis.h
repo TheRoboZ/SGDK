@@ -1,7 +1,7 @@
 #ifndef _GENESIS_H_
 #define _GENESIS_H_
 
-#define SGDK_VERSION    2.09
+#define SGDK_VERSION    2.12
 
 #include "types.h"
 
@@ -38,6 +38,7 @@
 #include "bmp.h"
 #include "sprite_eng.h"
 #include "sprite_eng_legacy.h"
+#include "sprite_eng_fast.h"
 
 #include "z80_ctrl.h"
 #include "ym2612.h"
