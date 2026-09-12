@@ -8,8 +8,9 @@
  * Streamlined sprite engine focused on performance (enabled with FAST_SPRITE_ENGINE in config.h).<br>
  * It's based on the default sprite engine (full sprite table rebuild each frame) with the following differences:<br>
  * - no collision structures (the unfinished collision detection has been removed, including from resource data)<br>
- * - visibility is computed for the whole (meta) sprite only (no per-hardware-sprite visibility)<br>
- * - no delayed frame update (frame changes are always applied immediately, DMA queue capacity is not tested)<br>
+ * - no automatic visibility computation at all: visibility is always set manually (see SPR_setVisibility)<br>
+ * - no multi palette sprite support: a frame uses a single palette (rescomp rejects multi palette art)<br>
+ * - delayed frame update is optional, off by default (see FAST_SPRITE_DELAYED_FRAME_UPDATE in config.h)<br>
  * - animation frame VDP sprite data is pre-packed by rescomp in Sprite Attribute Table field order,
  *   with dedicated streams for each flip combination, so the sprite table update loop requires no
  *   flip computation and a minimal amount of work per hardware sprite<br>
@@ -128,7 +129,6 @@ typedef struct
  *  \param numSprite
  *      number of VDP sprite which compose this frame (bits 0-5).<br>
  *      bit 7 = optimized single VDP sprite frame (single template entry stored)<br>
- *      bit 6 = frame uses per hardware sprite palette deltas (multi palette sprite)<br>
  *      always use 'numSprite & 0x3F' to just retrieve the number of sprite
  *  \param timer
  *      active time for this frame (in 1/60 of second)
