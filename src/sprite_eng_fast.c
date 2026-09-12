@@ -41,7 +41,6 @@
 #define ALLOCATED                           0x8000
 #define CHECK_VDP_SPRITE                    0x8000
 
-#define NEED_VISIBILITY_UPDATE              0x0001
 #define NEED_FRAME_UPDATE                   0x0002
 #define NEED_TILES_UPLOAD                   0x0004
 
@@ -60,7 +59,6 @@ extern void updateUserTileMaxIndex();
 static Sprite* allocateSprite(u16 head);
 static bool releaseSprite(Sprite* sprite);
 
-static u16 updateVisibility(Sprite* sprite, u16 status);
 static u16 updateFrame(Sprite* sprite, u16 status);
 
 static void loadTiles(Sprite* sprite);
@@ -368,10 +366,8 @@ Sprite* NO_INLINE SPR_addSpriteEx(const SpriteDefinition* spriteDef, s16 x, s16 
     KLog_U2("SPR_addSpriteEx: added sprite #", getSpriteIndex(sprite), " - internal position = ", sprite - spritesBank);
 #endif // SPR_DEBUG
 
-    // auto visibility ?
-    if (flag & SPR_FLAG_AUTO_VISIBILITY) sprite->visibility = 0;
-    // otherwise we set it to visible by default
-    else sprite->visibility = VISIBILITY_ON;
+    // visibility is always manual in this fork --> visible by default
+    sprite->visibility = VISIBILITY_ON;
     // initialized with specified flag
     sprite->definition = spriteDef;
     sprite->onFrameChange = NULL;
@@ -905,10 +901,6 @@ void SPR_setPosition(Sprite* sprite, s16 x, s16 y)
     {
         sprite->x = newx;
         sprite->y = newy;
-
-        // need to recompute visibility if auto visibility is enabled
-        if (sprite->status & SPR_FLAG_AUTO_VISIBILITY)
-            sprite->status |= NEED_VISIBILITY_UPDATE;
     }
 
     END_PROFIL(PROFIL_SET_ATTRIBUTE)
@@ -930,10 +922,6 @@ void SPR_setHFlip(Sprite* sprite, bool value)
     {
         // update attribut (flip stream selection is done during SPR_update())
         sprite->attribut = attr;
-
-        // need to recompute visibility if auto visibility is enabled
-        if (sprite->status & SPR_FLAG_AUTO_VISIBILITY)
-            sprite->status |= NEED_VISIBILITY_UPDATE;
     }
 
     END_PROFIL(PROFIL_SET_ATTRIBUTE)
@@ -955,10 +943,6 @@ void SPR_setVFlip(Sprite* sprite, bool value)
     {
         // update attribut (flip stream selection is done during SPR_update())
         sprite->attribut = attr;
-
-        // need to recompute visibility if auto visibility is enabled
-        if (sprite->status & SPR_FLAG_AUTO_VISIBILITY)
-            sprite->status |= NEED_VISIBILITY_UPDATE;
     }
 
     END_PROFIL(PROFIL_SET_ATTRIBUTE)
@@ -1304,9 +1288,6 @@ void SPR_setFrameChangeCallback(Sprite* sprite, FrameChangeCallback* callback)
 
 SpriteVisibility SPR_getVisibility(Sprite* sprite)
 {
-    if (sprite->status & SPR_FLAG_AUTO_VISIBILITY)
-        return AUTO_VISIBILITY;
-
     if (sprite->visibility) return VISIBLE;
     else return HIDDEN;
 }
@@ -1316,20 +1297,8 @@ NO_INLINE bool SPR_isVisible(Sprite* sprite, bool recompute)
     // for debug
     checkSpriteValid(sprite, "SPR_isVisible");
 
-    if (recompute)
-    {
-        u16 status = sprite->status;
-
-        // update visibility if needed
-        if (status & NEED_VISIBILITY_UPDATE)
-        {
-            // frame update need to be done first
-            if (status & NEED_FRAME_UPDATE)
-                status = updateFrame(sprite, status);
-            // then do visibility update
-            sprite->status = updateVisibility(sprite, status);
-        }
-    }
+    // visibility is always manual in this fork --> nothing to recompute
+    (void) recompute;
 
     return (sprite->visibility) ? TRUE : FALSE;
 }
@@ -1341,28 +1310,9 @@ void SPR_setVisibility(Sprite* sprite, SpriteVisibility value)
     // for debug
     checkSpriteValid(sprite, "SPR_setVisibility");
 
-    u16 status = sprite->status;
-
-    switch(value)
-    {
-        case VISIBLE:
-            status &= ~(SPR_FLAG_AUTO_VISIBILITY | NEED_VISIBILITY_UPDATE);
-            sprite->visibility = VISIBILITY_ON;
-            break;
-
-        case HIDDEN:
-            status &= ~(SPR_FLAG_AUTO_VISIBILITY | NEED_VISIBILITY_UPDATE);
-            sprite->visibility = VISIBILITY_OFF;
-            break;
-
-        case AUTO_VISIBILITY:
-            if (!(status & SPR_FLAG_AUTO_VISIBILITY))
-                status |= SPR_FLAG_AUTO_VISIBILITY | NEED_VISIBILITY_UPDATE;
-            break;
-    }
-
-    // update status
-    sprite->status = status;
+    // visibility is always manual in this fork (no AUTO_VISIBILITY)
+    if (value == VISIBLE) sprite->visibility = VISIBILITY_ON;
+    else sprite->visibility = VISIBILITY_OFF;
 
     END_PROFIL(PROFIL_SET_VISIBILITY)
 }
@@ -1423,11 +1373,8 @@ NO_INLINE void SPR_update()
 
         u16 status = sprite->status;
 
-        // order is important: updateFrame first then updateVisibility
         if (status & NEED_FRAME_UPDATE)
             status = updateFrame(sprite, status);
-        if (status & NEED_VISIBILITY_UPDATE)
-            status = updateVisibility(sprite, status);
 
         // sprite visible and still allocated (can be released during updateFrame(..) with the frame change callback) with enough entry in SAT ?
         if (sprite->visibility && (status & ALLOCATED) && (vdpSpriteInd <= SAT_MAX_SIZE))
@@ -1558,7 +1505,7 @@ void SPR_logProfil()
     KLog_U2x(4, "Set Visibility=", profil_time[PROFIL_SET_VISIBILITY], "  Clear=", profil_time[PROFIL_CLEAR]);
     KLog_U1x(4, "Sort Sprite list=", profil_time[PROFIL_SORT]);
     KLog_U1x_(4, " Update all=", profil_time[PROFIL_UPDATE], " -------------");
-    KLog_U2x(4, "Update visibility=", profil_time[PROFIL_UPDATE_VISIBILITY], "  Update frame=", profil_time[PROFIL_UPDATE_FRAME]);
+    KLog_U1x(4, "Update frame=", profil_time[PROFIL_UPDATE_FRAME]);
     KLog_U2x(4, "Update Sprite Table=", profil_time[PROFIL_UPDATE_SPRITE_TABLE], " Load Tiles=", profil_time[PROFIL_LOADTILES]);
 
     // reset profil counters
@@ -1579,40 +1526,6 @@ void SPR_logSprites()
 }
 
 
-static u16 updateVisibility(Sprite* sprite, u16 status)
-{
-    START_PROFIL
-
-    u16 visibility;
-    const SpriteDefinition* sprDef = sprite->definition;
-
-    // we use 'unsigned' on purpose here to get merged <0 test
-    const u16 sw = screenWidth;
-    const u16 sh = screenHeight;
-    const u16 w = sprDef->w - 1;
-    const u16 h = sprDef->h - 1;
-    const u16 x = sprite->x - 0x80;
-    const u16 y = sprite->y - 0x80;
-
-    // compute global visibility for the whole (meta) sprite ('unsigned' allow merged <0 test)
-    if (((u16)(x + w) < (u16)(sw + w)) && ((u16)(y + h) < (u16)(sh + h)))
-        visibility = VISIBILITY_ON;
-    else
-        visibility = VISIBILITY_OFF;
-
-#ifdef SPR_DEBUG
-    KLog_U3("    Sprite at [", sprite->x - 0x80, ",", sprite->y - 0x80, "] visibility = ", visibility);
-#endif // SPR_DEBUG
-
-    END_PROFIL(PROFIL_UPDATE_VISIBILITY)
-
-    // set the new computed visibility
-    sprite->visibility = visibility;
-
-    // visibility update done !
-    return status & ~NEED_VISIBILITY_UPDATE;
-}
-
 static u16 updateFrame(Sprite* sprite, u16 status)
 {
     START_PROFIL
@@ -1622,6 +1535,23 @@ static u16 updateFrame(Sprite* sprite, u16 status)
 #endif // SPR_DEBUG
 
     AnimationFrame* frame = sprite->animation->frames[sprite->frameInd];
+
+#if FAST_SPRITE_DELAYED_FRAME_UPDATE
+    // require tile upload for this frame ? --> check we have enough DMA capacity to do it
+    if (status & SPR_FLAG_AUTO_TILE_UPLOAD)
+    {
+        const u16 dmaCapacity = DMA_getMaxTransferSize();
+
+        if (dmaCapacity && ((DMA_getQueueTransferSize() + (frame->tileset->numTile * 32)) > dmaCapacity))
+        {
+            // initial frame update ? --> better to set frame at least (SAT stays valid, tiles are just not uploaded)
+            if (sprite->frame == NULL) sprite->frame = frame;
+
+            // delay frame update (NEED_FRAME_UPDATE remains set so it gets retried on next frame)
+            return status;
+        }
+    }
+#endif  // FAST_SPRITE_DELAYED_FRAME_UPDATE
 
     // set frame
     sprite->frame = frame;
@@ -1641,9 +1571,6 @@ static u16 updateFrame(Sprite* sprite, u16 status)
     // require tile data upload
     if (status & SPR_FLAG_AUTO_TILE_UPLOAD)
         status |= NEED_TILES_UPLOAD;
-    // require visibility update
-    if (status & SPR_FLAG_AUTO_VISIBILITY)
-        status |= NEED_VISIBILITY_UPDATE;
 
     // frame update done, also clear ANIMATION_DONE state
     status &= ~(NEED_FRAME_UPDATE | STATE_ANIMATION_DONE);

@@ -91,6 +91,20 @@
  */
 #define FAST_SPRITE_ENGINE      1
 
+/**
+ *  \brief
+ *      Set it to 1 to restore the <i>delayed frame update</i> guard in the fast sprite engine (disabled by default).<br>
+ *      The fast sprite engine normally applies frame changes immediately without testing DMA queue capacity, so a frame
+ *      where many sprites change animation frame at once can push the flush past VBlank into active display (torn tiles,
+ *      sprite table landing mid screen).<br>
+ *      With this enabled, a sprite tile upload that would exceed #DMA_getMaxTransferSize() is held back: the sprite keeps
+ *      rendering its previous frame coherently and the update is retried on the next frame against a fresh queue.<br>
+ *      Costs a capacity test per frame change and delays the animation by one frame when it triggers.<br>
+ *      NOTE: the frame change callback does NOT fire on a delayed frame, and a sprite's very first frame is not protected.
+ *      Only meaningful when #FAST_SPRITE_ENGINE is enabled.
+ */
+#define FAST_SPRITE_DELAYED_FRAME_UPDATE    1
+
 #if (LEGACY_SPRITE_ENGINE && FAST_SPRITE_ENGINE)
 #error "LEGACY_SPRITE_ENGINE and FAST_SPRITE_ENGINE cannot be enabled at same time (see config.h)"
 #endif

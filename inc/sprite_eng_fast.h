@@ -67,15 +67,9 @@
 #define SPR_FLAG_AUTO_TILE_UPLOAD               0x0400
 /**
  *  \brief
- *      Enable automatic visibility calculation (whole meta sprite visibility)
- */
-#define SPR_FLAG_AUTO_VISIBILITY                0x0200
-
-/**
- *  \brief
  *      Mask for sprite flag
  */
-#define SPR_FLAG_MASK                           (SPR_FLAG_INSERT_HEAD | SPR_FLAG_DISABLE_ANIMATION_LOOP | SPR_FLAG_AUTO_VRAM_ALLOC | SPR_FLAG_AUTO_TILE_UPLOAD | SPR_FLAG_AUTO_VISIBILITY)
+#define SPR_FLAG_MASK                           (SPR_FLAG_INSERT_HEAD | SPR_FLAG_DISABLE_ANIMATION_LOOP | SPR_FLAG_AUTO_VRAM_ALLOC | SPR_FLAG_AUTO_TILE_UPLOAD)
 
 /**
  *  \brief
@@ -95,8 +89,7 @@
 typedef enum
 {
     VISIBLE,        /**< Sprite is visible (no computation needed) */
-    HIDDEN,         /**< Sprite is hidden (no computation needed) */
-    AUTO_VISIBILITY /**< Automatic visibility calculation (whole meta sprite) */
+    HIDDEN          /**< Sprite is hidden (no computation needed) */
 } SpriteVisibility;
 
 /**
@@ -347,7 +340,6 @@ void SPR_reset(void);
  *      sprite attribut (see TILE_ATTR() macro).
  *  \param flag
  *      specific settings for this sprite:<br>
- *      #SPR_FLAG_AUTO_VISIBILITY = Enable automatic sprite visibility calculation (whole meta sprite).<br>
  *      #SPR_FLAG_AUTO_VRAM_ALLOC = Enable automatic VRAM allocation (enabled by default)<br>
  *      #SPR_FLAG_AUTO_TILE_UPLOAD = Enable automatic upload of sprite tiles data into VRAM (enabled by default)<br>
  *      #SPR_FLAG_INSERT_HEAD = Allow to insert the sprite at the start/head of the list (top most).<br>
@@ -719,7 +711,6 @@ void SPR_setFrameChangeCallback(Sprite* sprite, FrameChangeCallback* callback);
  *      WARNING: this is different from SPR_isVisible(..) method, possible value are:<br>
  *      SpriteVisibility.VISIBLE            = sprite is visible<br>
  *      SpriteVisibility.HIDDEN             = sprite is not visible<br>
- *      SpriteVisibility.AUTO_VISIBILITY    = visibility is automatically computed (whole meta sprite)<br>
  *
  *  \see SPR_isVisible(...)
  *  \see SPR_setVisibility(...)
@@ -727,13 +718,12 @@ void SPR_setFrameChangeCallback(Sprite* sprite, FrameChangeCallback* callback);
 SpriteVisibility SPR_getVisibility(Sprite* sprite);
 /**
  *  \brief
- *      Return the visible state for this sprite (meaningful only if AUTO visibility is enabled, see #SPR_setVisibility(..) method).
+ *      Return the visible state for this sprite.
  *
  *  \param sprite
  *      Sprite to return <i>visible</i> state
  *  \param recompute
- *      Force visibility computation.<br>
- *      Only required if SPR_update() wasn't called since last sprite position change (note that can force the frame update processing).
+ *      Ignored: this engine never computes visibility automatically (kept for API compatibility).
  *
  *  \see SPR_setVisibility(...)
  */
@@ -745,7 +735,7 @@ bool SPR_isVisible(Sprite* sprite, bool recompute);
  *  \param sprite
  *      Sprite to set the <i>visibility</i> information
  *  \param value
- *      Visibility value to set (VISIBLE, HIDDEN or AUTO_VISIBILITY)
+ *      Visibility value to set (VISIBLE or HIDDEN)
  *
  *      Hidden sprites don't consume any hardware sprite nor scanline sprite budget:<br>
  *      the VDP is limited to a maximum of 20 sprites or 320 pixels of sprite per scanline (16 sprites/256 px in H32 mode).
