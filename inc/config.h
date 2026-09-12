@@ -117,6 +117,18 @@
  */
 #define FAST_SPRITE_LAST_FRAME_MARKER       1
 
+/**
+ *  \brief
+ *      Set it to 1 (default) to use the hand written 68000 sprite table emission loop in the fast
+ *      sprite engine instead of the compiler generated one.<br>
+ *      This loop is the engine's hot spot; the assembly version uses post-increment addressing and
+ *      dbra throughout for roughly a third fewer cycles per hardware sprite. Behaviour is identical.<br>
+ *      Set it to 0 to fall back to the portable C loop (also used automatically when SPR_DEBUG is on,
+ *      since the debug build logs each emitted VDP sprite).
+ *      Only meaningful when #FAST_SPRITE_ENGINE is enabled.
+ */
+#define FAST_SPRITE_ASM_SAT                 1
+
 #if (LEGACY_SPRITE_ENGINE && FAST_SPRITE_ENGINE)
 #error "LEGACY_SPRITE_ENGINE and FAST_SPRITE_ENGINE cannot be enabled at same time (see config.h)"
 #endif

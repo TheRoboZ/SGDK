@@ -1437,6 +1437,40 @@ NO_INLINE void SPR_update()
             // each field only needs a single add (all static parts are pre-composed by rescomp)
             u16* dst = (u16*) vdpSprite;
 
+#if FAST_SPRITE_ASM_SAT && !defined(SPR_DEBUG)
+            // Hand written because this is the engine's hot spot and GCC codes it poorly: it mixes
+            // displacement addressing (2(a0), 4(a0), -2(a1)) with two separate pointer bumps, ~138
+            // cycles per hardware sprite. Pure post-increment plus dbra is ~94 for the same work.
+            // There is nothing for the compiler to be clever about here anyway - every SAT field is
+            // a single add onto data rescomp already pre-packed in SAT field order.
+            // num == 0 is possible (empty frame) and dbra would then wrap and run 65536 times,
+            // hence the guard; dbra runs count+1 times, hence the decrement.
+            if (num > 0)
+            {
+                num--;
+
+                __asm__ volatile (
+                    "1:\n\t"
+                    "move.w (%1)+,%%d0\n\t"     // y position
+                    "add.w  %4,%%d0\n\t"
+                    "move.w %%d0,(%0)+\n\t"
+                    "move.w (%1)+,%%d0\n\t"     // size (pre-shifted) + link
+                    "add.w  %2,%%d0\n\t"
+                    "addq.w #1,%2\n\t"
+                    "move.w %%d0,(%0)+\n\t"
+                    "move.w (%1)+,%%d0\n\t"     // attribut + cumulated tile index offset
+                    "add.w  %6,%%d0\n\t"
+                    "move.w %%d0,(%0)+\n\t"
+                    "move.w (%1)+,%%d0\n\t"     // x position
+                    "add.w  %5,%%d0\n\t"
+                    "move.w %%d0,(%0)+\n\t"
+                    "dbra   %3,1b"
+                    : "+a" (dst), "+a" (tmpl), "+d" (vdpSpriteInd), "+d" (num)
+                    : "d" (y), "d" (x), "d" (attr)
+                    : "d0", "cc", "memory"
+                );
+            }
+#else
             while(num--)
             {
                 *dst++ = *tmpl++ + y;               // y position
@@ -1448,6 +1482,7 @@ NO_INLINE void SPR_update()
                 logVDPSprite(vdpSpriteInd - 1);
 #endif // SPR_DEBUG
             }
+#endif  // FAST_SPRITE_ASM_SAT
 
             vdpSprite = (VDPSprite*) dst;
         }
