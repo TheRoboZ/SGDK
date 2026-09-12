@@ -74,6 +74,16 @@
 
 /**
  *  \brief
+ *      Sprite visible state, stored in the <i>status</i> field.<br>
+ *      This engine has no automatic visibility computation, so this bit is the whole of a sprite's
+ *      visibility: set = drawn, clear = skipped when the sprite table is built.<br>
+ *      Exposed so a game can toggle it directly (a single bit operation) instead of going through
+ *      #SPR_setVisibility(..); both are equivalent.
+ */
+#define SPR_STATE_VISIBLE                       0x0020
+
+/**
+ *  \brief
  *      Minimum depth for a sprite (always above others sprites)
  */
 #define SPR_MIN_DEPTH       (-0x8000)
@@ -205,8 +215,6 @@ typedef struct
  *
  *  \param status
  *      Internal state and automatic allocation information (internal)
- *  \param visibility
- *      visibility information of current frame: 0 = hidden, anything else = visible (internal)
  *  \param definition
  *      Sprite definition pointer
  *  \param onFrameChange
@@ -241,7 +249,6 @@ typedef struct
 typedef struct Sprite
 {
     u16 status;
-    u16 visibility;
     const SpriteDefinition* definition;
     void (*onFrameChange)(struct Sprite* sprite);
     Animation* animation;

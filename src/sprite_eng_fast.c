@@ -35,9 +35,6 @@
 #define MAX_SPRITE                          80
 
 // internals
-#define VISIBILITY_ON                       0xFFFF
-#define VISIBILITY_OFF                      0x0000
-
 #define ALLOCATED                           0x8000
 #define CHECK_VDP_SPRITE                    0x8000
 
@@ -367,7 +364,7 @@ Sprite* NO_INLINE SPR_addSpriteEx(const SpriteDefinition* spriteDef, s16 x, s16 
 #endif // SPR_DEBUG
 
     // visibility is always manual in this fork --> visible by default
-    sprite->visibility = VISIBILITY_ON;
+    sprite->status |= SPR_STATE_VISIBLE;
     // initialized with specified flag
     sprite->definition = spriteDef;
     sprite->onFrameChange = NULL;
@@ -1288,7 +1285,7 @@ void SPR_setFrameChangeCallback(Sprite* sprite, FrameChangeCallback* callback)
 
 SpriteVisibility SPR_getVisibility(Sprite* sprite)
 {
-    if (sprite->visibility) return VISIBLE;
+    if (sprite->status & SPR_STATE_VISIBLE) return VISIBLE;
     else return HIDDEN;
 }
 
@@ -1300,7 +1297,7 @@ NO_INLINE bool SPR_isVisible(Sprite* sprite, bool recompute)
     // visibility is always manual in this fork --> nothing to recompute
     (void) recompute;
 
-    return (sprite->visibility) ? TRUE : FALSE;
+    return (sprite->status & SPR_STATE_VISIBLE) ? TRUE : FALSE;
 }
 
 void SPR_setVisibility(Sprite* sprite, SpriteVisibility value)
@@ -1311,8 +1308,8 @@ void SPR_setVisibility(Sprite* sprite, SpriteVisibility value)
     checkSpriteValid(sprite, "SPR_setVisibility");
 
     // visibility is always manual in this fork (no AUTO_VISIBILITY)
-    if (value == VISIBLE) sprite->visibility = VISIBILITY_ON;
-    else sprite->visibility = VISIBILITY_OFF;
+    if (value == VISIBLE) sprite->status |= SPR_STATE_VISIBLE;
+    else sprite->status &= ~SPR_STATE_VISIBLE;
 
     END_PROFIL(PROFIL_SET_VISIBILITY)
 }
@@ -1377,7 +1374,7 @@ NO_INLINE void SPR_update()
             status = updateFrame(sprite, status);
 
         // sprite visible and still allocated (can be released during updateFrame(..) with the frame change callback) with enough entry in SAT ?
-        if (sprite->visibility && (status & ALLOCATED) && (vdpSpriteInd <= SAT_MAX_SIZE))
+        if ((status & (SPR_STATE_VISIBLE | ALLOCATED)) == (SPR_STATE_VISIBLE | ALLOCATED) && (vdpSpriteInd <= SAT_MAX_SIZE))
         {
             if (status & NEED_TILES_UPLOAD)
             {
@@ -1698,7 +1695,7 @@ static void logSprite(Sprite* sprite)
     KLog_U2("Sprite #", getSpriteIndex(sprite), " ------------- status=", sprite->status);
     KLog_U2("animInd=", sprite->animInd, " frameInd=", sprite->frameInd);
     KLog_S4("attribut=", sprite->attribut, " x=", sprite->x, " y=", sprite->y, " depth=", sprite->depth);
-    KLog_U2("visibility=", sprite->visibility, " timer=", sprite->timer);
+    KLog_U2("visible=", (sprite->status & SPR_STATE_VISIBLE) ? 1 : 0, " timer=", sprite->timer);
     KLog_U2("prev=", (sprite->prev == NULL) ? 128 : getSpriteIndex(sprite->prev), " next=", (sprite->next == NULL) ? 128 : getSpriteIndex(sprite->next));
 }
 
