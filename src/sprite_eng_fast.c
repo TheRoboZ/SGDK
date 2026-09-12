@@ -44,6 +44,18 @@
 #define NEED_UPDATE                         0x000F
 
 #define STATE_ANIMATION_DONE                0x0010
+#define STATE_LAST_FRAME                    0x0040
+
+#if FAST_SPRITE_LAST_FRAME_MARKER
+// Maintains STATE_LAST_FRAME: a precomputed "frameInd is the last frame of this animation" bit,
+// so SPR_isAnimationDone() does not have to dereference animation->numFrame on every call.
+// MUST be applied at EVERY write to frameInd, never in updateFrame(): the game can call
+// SPR_setAnim(..) and then SPR_isAnimationDone(..) within the same tick, before SPR_update()
+// has processed the pending frame change, and a bit maintained at update time would be stale.
+#define UPDATE_LAST_FRAME(spr, anim, frameIndex)    do { if ((frameIndex) >= ((anim)->numFrame - 1)) (spr)->status |= STATE_LAST_FRAME; else (spr)->status &= ~STATE_LAST_FRAME; } while(0)
+#else
+#define UPDATE_LAST_FRAME(spr, anim, frameIndex)    do { } while(0)
+#endif
 
 
 // shared from vdp_spr.c unit
@@ -861,6 +873,8 @@ NO_INLINE bool SPR_setDefinition(Sprite* sprite, const SpriteDefinition* spriteD
     sprite->frame = NULL;
     sprite->animInd = -1;
     sprite->frameInd = -1;
+    // no valid frame yet (SPR_setAnimAndFrame below recomputes it)
+    sprite->status &= ~STATE_LAST_FRAME;
 
     // set anim and frame to 0
     SPR_setAnimAndFrame(sprite, 0, 0);
@@ -1043,6 +1057,7 @@ void SPR_setAnimAndFrame(Sprite* sprite, s16 anim, s16 frame)
         sprite->animInd = anim;
         sprite->frameInd = frame;
         sprite->animation = animation;
+        UPDATE_LAST_FRAME(sprite, animation, frame);
 
         // set timer to 0 to prevent auto animation to change frame in between
         if (sprite->timer > 0)
@@ -1075,6 +1090,7 @@ void SPR_setAnim(Sprite* sprite, s16 anim)
         // first frame by default
         sprite->frameInd = 0;
         sprite->animation = sprite->definition->animations[anim];
+        UPDATE_LAST_FRAME(sprite, sprite->animation, 0);
 
         // set timer to 0 to prevent auto animation to change frame in between
         if (sprite->timer > 0)
@@ -1104,6 +1120,7 @@ void SPR_setFrame(Sprite* sprite, s16 frame)
 #endif // LIB_DEBUG
 
         sprite->frameInd = frame;
+        UPDATE_LAST_FRAME(sprite, sprite->animation, frame);
 
         // set timer to 0 to prevent auto animation to change frame in between
         if (sprite->timer > 0)
@@ -1188,9 +1205,17 @@ bool SPR_isAnimationDone(Sprite* sprite)
     checkSpriteValid(sprite, "SPR_isAnimationDone");
 
     // when we are in the frame change callback we need to test for the 'animation done state'
+#if FAST_SPRITE_LAST_FRAME_MARKER
+    // STATE_LAST_FRAME replaces the animation->numFrame double indirection (maintained at every
+    // frameInd write, see UPDATE_LAST_FRAME) so this is entirely status + timer
+    const u16 status = sprite->status;
+    return (status & STATE_ANIMATION_DONE) ||
+           ((status & STATE_LAST_FRAME) && ((sprite->timer == 1) || (sprite->timer == -1)));
+#else
     return (sprite->status & STATE_ANIMATION_DONE) ||
             // otherwise we just check if we are on last frame tick (if auto animation is disabled then only test for last frame)
            ((sprite->frameInd == (sprite->animation->numFrame - 1)) && ((sprite->timer == 1) || (sprite->timer == -1)));
+#endif
 }
 
 bool SPR_setVRAMTileIndex(Sprite* sprite, s16 value)

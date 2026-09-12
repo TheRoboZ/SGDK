@@ -105,6 +105,18 @@
  */
 #define FAST_SPRITE_DELAYED_FRAME_UPDATE    1
 
+/**
+ *  \brief
+ *      Set it to 1 (default) to let the fast sprite engine keep a precomputed "on last animation frame" bit
+ *      in the sprite status word, so #SPR_isAnimationDone(..) does not have to dereference the animation
+ *      structure on every call.<br>
+ *      The bit is maintained at every write to the frame index; set this to 0 to fall back to reading
+ *      animation->numFrame directly, which is slower but has no invariant to get wrong.<br>
+ *      Behaviour is identical either way -- this is purely a speed / risk trade for a hot query.
+ *      Only meaningful when #FAST_SPRITE_ENGINE is enabled.
+ */
+#define FAST_SPRITE_LAST_FRAME_MARKER       1
+
 #if (LEGACY_SPRITE_ENGINE && FAST_SPRITE_ENGINE)
 #error "LEGACY_SPRITE_ENGINE and FAST_SPRITE_ENGINE cannot be enabled at same time (see config.h)"
 #endif
