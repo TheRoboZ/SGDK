@@ -59,7 +59,6 @@ extern u16 lastVCnt;
 
 // extern library callback function (we don't want to share them)
 extern void BMP_doVBlankProcess(void);
-extern bool MAP_doVBlankProcess(void);
 extern bool VDP_doVBlankScrollProcess(void);
 
 
@@ -105,7 +104,7 @@ __attribute__((externally_visible)) VoidCallback *intCB;
 // user VBlank callbacks
 VoidCallback *vblankCB;
 
-__attribute__((externally_visible)) u16 VBlankProcess;
+__attribute__((externally_visible)) vu16 VBlankProcess;
 __attribute__((externally_visible)) vu16 intTrace;
 
 // need to be accessed from external
@@ -638,9 +637,56 @@ static void NO_INLINE internal_reset()
     SYS_setInterruptMaskLevel(3);
 }
 
+// Clear a VBlank process task bit without losing a bit an interrupt may set at the
+// same time. The volatile access has to be casted away on purpose here: a volatile
+// read-modify-write forces GCC to emit a separate load / modify / store sequence
+// while we want the single ANDI.W <imm>,<mem> instruction, which the 68000 cannot
+// interrupt (interrupts are only taken between instructions).
+static FORCE_INLINE void clearVBlankProcess(u16 mask)
+{
+    *((u16*) &VBlankProcess) &= ~mask;
+}
+
 bool SYS_doVBlankProcess()
 {
     return SYS_doVBlankProcessEx(ON_VBLANK_START);
+}
+
+// Frame load display (debug feature). Kept out of line because -O3 tail duplication
+// would otherwise emit a copy of it in every tail of doVBlankProcessInternal().
+// Position and VDP write are split for the same reason: as a single function GCC
+// duplicates the write sequence into each of the 4 branch tails.
+static u16 NO_INLINE getFrameLoadCursorY()
+{
+    // use CPU load display instead (mean)
+    if (flags & SHOW_FRAME_LOAD_MEAN)
+    {
+        // get CPU load (0-255)
+        u16 load = cpuFrameLoad / LOAD_MEAN_FRAME_NUM;
+
+        if (load > 224) return 220 + 0x80;
+        return load + (0x80 - 4);
+    }
+
+    // directly use VCounter, position relative to last stored VCounter
+    if ((lastVCnt > 224) || (lastVCnt < 4)) return 0x80;
+    if (lastVCnt > 220) return 220 + 0x80;
+    return lastVCnt + (0x80 - 4);
+}
+
+static void NO_INLINE showFrameLoadCursor()
+{
+    const u16 y = getFrameLoadCursorY();
+
+    // use internal sprite 0 to show cursor
+    vdpSpriteCache[0].y = y;
+
+    // write immediately in VRAM the sprite position change
+    vu16* pw = (u16 *) VDP_DATA_PORT;
+    vu32* pl = (u32 *) VDP_CTRL_PORT;
+
+    *pl = VDP_WRITE_VRAM_ADDR(VDP_SPRITE_TABLE);
+    *pw = y;
 }
 
 bool NO_INLINE SYS_doVBlankProcessEx(VBlankProcessTime processTime)
@@ -662,7 +708,15 @@ bool NO_INLINE SYS_doVBlankProcessEx(VBlankProcessTime processTime)
         }
     }
 
-    u16 vbp = VBlankProcess;
+    // the process body is kept inline here on purpose: splitting it into its own
+    // NO_INLINE function stops the constant propagated clone duplicating it and saves
+    // ROM, but costs an extra jsr/moveq/rts (~39 cycles) on every single frame.
+    // Measured on hardware, cycles were the preferred trade.
+
+    // local copy is only used to *test* the task bits, bit clearing is done directly
+    // in memory (single 68000 instruction, so atomic against interrupts) as an
+    // interrupt may set a task bit while we are processing the tasks below
+    const u16 vbp = VBlankProcess;
 #if (LIB_LOG_LEVEL >= LOG_LEVEL_WARNING)
     u16 vcnt = 0;
 #endif
@@ -670,33 +724,45 @@ bool NO_INLINE SYS_doVBlankProcessEx(VBlankProcessTime processTime)
     // dma processing
     if (vbp & PROCESS_DMA_TASK)
     {
+        // Something queued ? DMA_flushQueue() early-outs on an empty queue by itself,
+        // but it knows nothing about the Z80 bus protection or the PCM delay below, and
+        // those are the expensive part (the delay alone measures ~877 cycles). So this
+        // test has to stay here even though the one inside DMA_flushQueue() looks like
+        // it makes it redundant.
+        if (DMA_getQueueSize())
+        {
 #if (LIB_LOG_LEVEL >= LOG_LEVEL_WARNING)
-        u16 dmaSize = DMA_getQueueTransferSize();
+            u16 dmaSize = DMA_getQueueTransferSize();
 #endif
 
-        // enable bus protection for Z80 before flushing DMA
-        Z80_enableBusProtection();
+            // enable bus protection for Z80 before flushing DMA
+            Z80_enableBusProtection();
 
-        // delay enabled ? --> wait a bit to improve PCM playback (test on SOR2)
-        if (Z80_getForceDelayDMA()) waitSubTick(10);
-        DMA_flushQueue();
+            // delay enabled ? --> wait a bit to improve PCM playback (test on SOR2)
+            if (Z80_getForceDelayDMA()) waitSubTick(10);
+            DMA_flushQueue();
 
-        // can disable bus protection
-        Z80_disableBusProtection();
+            // can disable bus protection
+            Z80_disableBusProtection();
 
 #if (LIB_LOG_LEVEL >= LOG_LEVEL_WARNING)
-        vcnt = GET_VCOUNTER;
+            vcnt = GET_VCOUNTER;
 
-        // above scanline 2 ? better to warn about DMA overrun
-        if ((vcnt < 224) && (vcnt > 2))
-            KLog_U3("Warning: DMA task (", dmaSize, " bytes) completed outside VBlank area. Scanline after completion = ", vcnt, " on frame #", vtimer);
+            // above scanline 2 ? better to warn about DMA overrun
+            if ((vcnt < 224) && (vcnt > 2))
+                KLog_U3("Warning: DMA task (", dmaSize, " bytes) completed outside VBlank area. Scanline after completion = ", vcnt, " on frame #", vtimer);
 #endif
+        }
+        // nothing to flush: no need for the Z80 bus protection and the DMA delay,
+        // but we still have to reset the temporary data buffer pointer as
+        // DMA_allocateTemp(..) can be used without queuing any transfer
+        else DMA_clearQueue();
     }
 
     // VDP scroll process (async scroll update)
     if (vbp & PROCESS_VDP_SCROLL_TASK)
     {
-        if (!VDP_doVBlankScrollProcess()) vbp &= ~PROCESS_VDP_SCROLL_TASK;
+        if (!VDP_doVBlankScrollProcess()) clearVBlankProcess(PROCESS_VDP_SCROLL_TASK);
 
 #if (LIB_LOG_LEVEL >= LOG_LEVEL_WARNING)
         // previous v-counter was ok ?
@@ -714,7 +780,7 @@ bool NO_INLINE SYS_doVBlankProcessEx(VBlankProcessTime processTime)
     // palette fading process
     if (vbp & PROCESS_PALETTE_FADING)
     {
-        if (!PAL_doFadeStep()) vbp &= ~PROCESS_PALETTE_FADING;
+        if (!PAL_doFadeStep()) clearVBlankProcess(PROCESS_PALETTE_FADING);
 
 #if (LIB_LOG_LEVEL >= LOG_LEVEL_WARNING)
         // previous v-counter was ok ?
@@ -729,43 +795,11 @@ bool NO_INLINE SYS_doVBlankProcessEx(VBlankProcessTime processTime)
 #endif
     }
 
-    // store back
-    VBlankProcess = vbp;
-
     // user VBlank callback
     (*vblankCB)();
 
     // frame load display enabled ?
-    if (flags & SHOW_FRAME_LOAD)
-    {
-        // use internal sprite 0 to show cursor
-        VDPSprite* vdpSprite = &vdpSpriteCache[0];
-
-        // use CPU load display instead (mean)
-        if (flags & SHOW_FRAME_LOAD_MEAN)
-        {
-            // get CPU load (0-255)
-            u16 load = cpuFrameLoad / LOAD_MEAN_FRAME_NUM;
-
-            if (load > 224) vdpSprite->y = 220 + 0x80;
-            else vdpSprite->y = load + (0x80 - 4);
-        }
-        // directly use VCounter
-        else
-        {
-            // update position relative to last stored VCounter
-            if ((lastVCnt > 224) || (lastVCnt < 4)) vdpSprite->y = 0x80;
-            else if (lastVCnt > 220) vdpSprite->y = 220 + 0x80;
-            else vdpSprite->y = lastVCnt + (0x80 - 4);
-        }
-
-        // write immediately in VRAM the sprite position change
-        vu16* pw = (u16 *) VDP_DATA_PORT;
-        vu32* pl = (u32 *) VDP_CTRL_PORT;
-
-        *pl = VDP_WRITE_VRAM_ADDR(VDP_SPRITE_TABLE);
-        *pw = vdpSprite->y;
-    }
+    if (flags & SHOW_FRAME_LOAD) showFrameLoadCursor();
 
     // joy state refresh
     JOY_update();

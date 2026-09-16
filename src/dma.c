@@ -37,7 +37,10 @@ static u16 dataBufferSize;
 
 // current queue index (0 = empty / queueSize = full)
 static u16 queueIndex;
+// number of transfer to keep when the capacity limit was reached. 0 is a valid value
+// (= keep none), so whether a limit exists at all is tracked separately below.
 static u16 queueIndexLimit;
+static bool queueLimitReached;
 static u16 queueTransferSize;
 
 // do not share (assembly methods)
@@ -184,6 +187,7 @@ void DMA_clearQueue()
 {
     queueIndex = 0;
     queueIndexLimit = 0;
+    queueLimitReached = FALSE;
     queueTransferSize = 0;
 
     // reset DMA data buffer pointer
@@ -200,7 +204,7 @@ void DMA_flushQueue()
     i = queueIndex;
 
     // limit reached ?
-    if (queueIndexLimit)
+    if (queueLimitReached)
     {
         // we choose to ignore over capacity transfers ?
         if (flag & DMA_OVERCAPACITY_IGNORE)
@@ -216,6 +220,15 @@ void DMA_flushQueue()
 #ifdef DMA_DEBUG
     KLog_U3("DMA_flushQueue: queueIndexLimit=", queueIndexLimit, " queueIndex=", queueIndex, " i=", i);
 #endif
+
+    // nothing to transfer ? --> no point saving / restoring the VDP auto increment
+    // register or disturbing the Z80 for an empty flush. We still clear the queue as
+    // DMA_allocateTemp(..) can be used without queuing any transfer.
+    if (!i)
+    {
+        DMA_clearQueue();
+        return;
+    }
 
     // save autoInc
     autoInc = VDP_getAutoInc();
@@ -522,8 +535,13 @@ bool NO_INLINE DMA_queueDmaFast(u8 location, void* from, u16 to, u16 len, u16 st
     if (queueTransferSize > maxTransferPerFrame)
     {
         // first time we reach the limit ? store index where to stop transfer
-        if (queueIndexLimit == 0)
+        // (test the dedicated flag and not queueIndexLimit itself: a limit of 0,
+        //  meaning the very first queued transfer already blew the capacity, is a
+        //  perfectly valid value and must not read as "no limit set")
+        if (!queueLimitReached)
         {
+            queueLimitReached = TRUE;
+
 #if (LIB_LOG_LEVEL >= LOG_LEVEL_WARNING)
             KLog_S4("DMA_queueDmaFast(..) warning: transfer size limit raised on transfer #", queueIndex - 1, " on frame #", vtimer, ", current size = ", queueTransferSize, "  max allowed = ", maxTransferPerFrame);
 #endif
