@@ -1653,6 +1653,12 @@ NO_INLINE void SPR_update()
                 // so visibility also allow to get the number of sprite
                 s16 visibility = (s16)(sprite->visibility & visibilityMask[(u8) numSprite]);
 
+                // hoisted out of the emission loops below: they are loop invariant, but the loops
+                // store through vdpSprite and nothing tells the compiler that cannot alias the
+                // Sprite, so both were re-read from memory after every store
+                const s16 sprX = sprite->x;
+                const s16 sprY = sprite->y;
+
                 switch(attr & (TILE_ATTR_VFLIP_MASK | TILE_ATTR_HFLIP_MASK))
                 {
                     case 0:
@@ -1661,11 +1667,11 @@ NO_INLINE void SPR_update()
                             // current sprite visibility bit is in high bit
                             if (visibility < 0)
                             {
-                                vdpSprite->y = sprite->y + frameSprite->offsetY;
+                                vdpSprite->y = sprY + frameSprite->offsetY;
                                 vdpSprite->size = frameSprite->size;
                                 vdpSprite->link = vdpSpriteInd++;
                                 vdpSprite->attribut = attr;
-                                vdpSprite->x = sprite->x + frameSprite->offsetX;
+                                vdpSprite->x = sprX + frameSprite->offsetX;
                                 vdpSprite++;
                             }
 
@@ -1688,11 +1694,11 @@ NO_INLINE void SPR_update()
                             // current sprite visibility bit is in high bit
                             if (visibility < 0)
                             {
-                                vdpSprite->y = sprite->y + frameSprite->offsetY;
+                                vdpSprite->y = sprY + frameSprite->offsetY;
                                 vdpSprite->size = frameSprite->size;
                                 vdpSprite->link = vdpSpriteInd++;
                                 vdpSprite->attribut = attr;
-                                vdpSprite->x = sprite->x + frameSprite->offsetXFlip;
+                                vdpSprite->x = sprX + frameSprite->offsetXFlip;
                                 vdpSprite++;
                             }
 
@@ -1715,11 +1721,11 @@ NO_INLINE void SPR_update()
                             // current sprite visibility bit is in high bit
                             if (visibility < 0)
                             {
-                                vdpSprite->y = sprite->y + frameSprite->offsetYFlip;
+                                vdpSprite->y = sprY + frameSprite->offsetYFlip;
                                 vdpSprite->size = frameSprite->size;
                                 vdpSprite->link = vdpSpriteInd++;
                                 vdpSprite->attribut = attr;
-                                vdpSprite->x = sprite->x + frameSprite->offsetX;
+                                vdpSprite->x = sprX + frameSprite->offsetX;
                                 vdpSprite++;
                             }
 
@@ -1742,11 +1748,11 @@ NO_INLINE void SPR_update()
                             // current sprite visibility bit is in high bit
                             if (visibility < 0)
                             {
-                                vdpSprite->y = sprite->y + frameSprite->offsetYFlip;
+                                vdpSprite->y = sprY + frameSprite->offsetYFlip;
                                 vdpSprite->size = frameSprite->size;
                                 vdpSprite->link = vdpSpriteInd++;
                                 vdpSprite->attribut = attr;
-                                vdpSprite->x = sprite->x + frameSprite->offsetXFlip;
+                                vdpSprite->x = sprX + frameSprite->offsetXFlip;
                                 vdpSprite++;
                             }
 

@@ -1939,18 +1939,23 @@ static void updateSpriteTableAll(Sprite* sprite)
     frame = sprite->frame;
     num = frame->numSprite & 0x7F;
     frameSprite = frame->frameVDPSprites;
+    // hoisted out of the loops below: loop invariant, but the loops store through vdpSprite
+    // and nothing tells the compiler that cannot alias the Sprite, so both were re-read
+    // from memory after every store
+    const s16 sprX = sprite->x;
+    const s16 sprY = sprite->y;
     vdpSprite = &vdpSpriteCache[sprite->VDPSpriteIndex];
 
     if (visibility == VISIBILITY_ON)
     {
         while(num--)
         {
-            if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprite->y + frameSprite->offsetYFlip;
-            else vdpSprite->y = sprite->y + frameSprite->offsetY;
+            if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprY + frameSprite->offsetYFlip;
+            else vdpSprite->y = sprY + frameSprite->offsetY;
             vdpSprite->size = frameSprite->size;
             vdpSprite->attribut = attr;
-            if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprite->x + frameSprite->offsetXFlip;
-            else vdpSprite->x = sprite->x + frameSprite->offsetX;
+            if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprX + frameSprite->offsetXFlip;
+            else vdpSprite->x = sprX + frameSprite->offsetX;
 
             // increment tile index in attribut field
             attr += frameSprite->numTile;
@@ -1965,10 +1970,10 @@ static void updateSpriteTableAll(Sprite* sprite)
         {
             if (visibility & 1)
             {
-                if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprite->y + frameSprite->offsetYFlip;
-                else vdpSprite->y = sprite->y + frameSprite->offsetY;
-                if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprite->x + frameSprite->offsetXFlip;
-                else vdpSprite->x = sprite->x + frameSprite->offsetX;
+                if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprY + frameSprite->offsetYFlip;
+                else vdpSprite->y = sprY + frameSprite->offsetY;
+                if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprX + frameSprite->offsetXFlip;
+                else vdpSprite->x = sprX + frameSprite->offsetX;
             }
             else vdpSprite->y = 0;
             vdpSprite->size = frameSprite->size;
@@ -2027,16 +2032,21 @@ static void updateSpriteTablePos(Sprite* sprite)
     frame = sprite->frame;
     num = frame->numSprite & 0x7F;
     frameSprite = frame->frameVDPSprites;
+    // hoisted out of the loops below: loop invariant, but the loops store through vdpSprite
+    // and nothing tells the compiler that cannot alias the Sprite, so both were re-read
+    // from memory after every store
+    const s16 sprX = sprite->x;
+    const s16 sprY = sprite->y;
     vdpSprite = &vdpSpriteCache[sprite->VDPSpriteIndex];
 
     if (visibility == VISIBILITY_ON)
     {
         while(num--)
         {
-            if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprite->y + frameSprite->offsetYFlip;
-            else vdpSprite->y = sprite->y + frameSprite->offsetY;
-            if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprite->x + frameSprite->offsetXFlip;
-            else vdpSprite->x = sprite->x + frameSprite->offsetX;
+            if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprY + frameSprite->offsetYFlip;
+            else vdpSprite->y = sprY + frameSprite->offsetY;
+            if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprX + frameSprite->offsetXFlip;
+            else vdpSprite->x = sprX + frameSprite->offsetX;
 
             // pass to next VDP sprite
             vdpSprite = &vdpSpriteCache[vdpSprite->link];
@@ -2050,10 +2060,10 @@ static void updateSpriteTablePos(Sprite* sprite)
         {
             if (visibility & 1)
             {
-                if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprite->y + frameSprite->offsetYFlip;
-                else vdpSprite->y = sprite->y + frameSprite->offsetY;
-                if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprite->x + frameSprite->offsetXFlip;
-                else vdpSprite->x = sprite->x + frameSprite->offsetX;
+                if (attr & TILE_ATTR_VFLIP_MASK) vdpSprite->y = sprY + frameSprite->offsetYFlip;
+                else vdpSprite->y = sprY + frameSprite->offsetY;
+                if (attr & TILE_ATTR_HFLIP_MASK) vdpSprite->x = sprX + frameSprite->offsetXFlip;
+                else vdpSprite->x = sprX + frameSprite->offsetX;
             }
             else vdpSprite->y = 0;
 
