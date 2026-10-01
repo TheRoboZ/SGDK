@@ -423,6 +423,38 @@
  */
 #define VDP_DMA_VRAMCOPY_ADDR(adr)  (((0x4000 + ((adr) & 0x3FFF)) << 16) + (((adr) >> 14) | 0xC0))
 
+
+
+/* 68000-optimized VDP command builder for runtime addresses.
+ * cmd = ((adr & 0x3FFF) << 16) | (adr >> 14) | base
+ * Needs a zero-extended 16-bit address; the u16 parameter guarantees it. */
+static inline __attribute__((always_inline)) u32 __vdp_cmd_rt(u16 adr, u32 base)
+{
+    u32 cmd = adr;
+    __asm__ ("lsl.l  #2,%0\n\t"
+             "lsr.w  #2,%0\n\t"
+             "swap   %0"
+             : "+d" (cmd) : : "cc");
+    return cmd | base;
+}
+
+/* Constants keep folding at compile time, including static initializers. */
+#define __VDP_CMD(adr, base)                                                    \
+    (__builtin_constant_p(adr)                                                  \
+        ? (((((u32)(adr)) & 0x3FFF) << 16) | ((((u32)(adr)) >> 14) & 3) | (base)) \
+        : __vdp_cmd_rt((u16)(adr), (base)))
+
+#undef VDP_READ_VRAM_ADDR
+#undef VDP_WRITE_VRAM_ADDR
+#undef VDP_DMA_VRAM_ADDR
+#undef VDP_DMA_VRAMCOPY_ADDR
+#define VDP_READ_VRAM_ADDR(adr)     __VDP_CMD(adr, 0x00000000)
+#define VDP_WRITE_VRAM_ADDR(adr)    __VDP_CMD(adr, 0x40000000)
+#define VDP_DMA_VRAM_ADDR(adr)      __VDP_CMD(adr, 0x40000080)
+#define VDP_DMA_VRAMCOPY_ADDR(adr)  __VDP_CMD(adr, 0x400000C0)
+
+
+
 /**
  *  \brief
  *      Helper to write in vertical scroll table (same as VDP_WRITE_VSRAM_ADDR).
@@ -1131,7 +1163,7 @@ void VDP_showFPS(u16 asFloat, u16 x, u16 y);
 /**
  *  \brief
  *      Display the estimated CPU load (in %).
- * 
+ *
 *  \param x
  *      X coordinate (in tile).
  *  \param y
