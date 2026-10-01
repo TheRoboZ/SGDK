@@ -1653,15 +1653,18 @@ NO_INLINE void SPR_update()
                 // so visibility also allow to get the number of sprite
                 s16 visibility = (s16)(sprite->visibility & visibilityMask[(u8) numSprite]);
 
-                // hoisted out of the emission loops below: they are loop invariant, but the loops
-                // store through vdpSprite and nothing tells the compiler that cannot alias the
-                // Sprite, so both were re-read from memory after every store
-                const s16 sprX = sprite->x;
-                const s16 sprY = sprite->y;
-
+                // sprite->x / sprite->y are hoisted out of the emission loops below (they are loop invariant
+                // but the loops store through vdpSprite, so they were re-read after every store).
+                // The loads are done per case on purpose: declared once before the switch, gcc merges them
+                // with the single sprite path reads above and moves them before the numSprite test, which
+                // makes the single sprite path pay for register loads it doesn't need.
                 switch(attr & (TILE_ATTR_VFLIP_MASK | TILE_ATTR_HFLIP_MASK))
                 {
                     case 0:
+                    {
+                        const s16 sprX = sprite->x;
+                        const s16 sprY = sprite->y;
+
                         while(visibility)
                         {
                             // current sprite visibility bit is in high bit
@@ -1687,8 +1690,13 @@ NO_INLINE void SPR_update()
 #endif // SPR_DEBUG
                         }
                         break;
+                    }
 
                     case TILE_ATTR_HFLIP_MASK:
+                    {
+                        const s16 sprX = sprite->x;
+                        const s16 sprY = sprite->y;
+
                         while(visibility)
                         {
                             // current sprite visibility bit is in high bit
@@ -1714,8 +1722,13 @@ NO_INLINE void SPR_update()
 #endif // SPR_DEBUG
                         }
                         break;
+                    }
 
                     case TILE_ATTR_VFLIP_MASK:
+                    {
+                        const s16 sprX = sprite->x;
+                        const s16 sprY = sprite->y;
+
                         while(visibility)
                         {
                             // current sprite visibility bit is in high bit
@@ -1741,8 +1754,13 @@ NO_INLINE void SPR_update()
 #endif // SPR_DEBUG
                         }
                         break;
+                    }
 
                     case (TILE_ATTR_VFLIP_MASK | TILE_ATTR_HFLIP_MASK):
+                    {
+                        const s16 sprX = sprite->x;
+                        const s16 sprY = sprite->y;
+
                         while(visibility)
                         {
                             // current sprite visibility bit is in high bit
@@ -1768,6 +1786,7 @@ NO_INLINE void SPR_update()
 #endif // SPR_DEBUG
                         }
                         break;
+                    }
                 }
             }
         }
