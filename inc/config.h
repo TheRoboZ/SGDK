@@ -85,7 +85,10 @@
  *  \brief
  *      Set it to 1 if you want to use the fast / streamlined sprite engine instead of the default one.<br>
  *      The fast sprite engine is based on the default one but drops some features to improve performance:<br>
- *      no collision structures, whole (meta) sprite visibility computation only and no delayed frame update on DMA saturation.<br>
+ *      no collision structures, no automatic visibility computation (visibility is always set manually) and no
+ *      multi palette sprite support (a frame uses a single palette; rescomp rejects multi palette art).<br>
+ *      VDP sprite data is pre-packed by rescomp in Sprite Attribute Table field order so the sprite table update
+ *      loop needs no flip computation and minimal work per hardware sprite.<br>
  *      IMPORTANT: it requires sprite resources exported with the rescomp <b>FASTSPRITE</b> resource type
  *      (classic SPRITE resource data layout is not compatible).
  */
@@ -93,7 +96,7 @@
 
 /**
  *  \brief
- *      Set it to 1 to restore the <i>delayed frame update</i> guard in the fast sprite engine (disabled by default).<br>
+ *      Set it to 1 (default) to keep the <i>delayed frame update</i> guard in the fast sprite engine.<br>
  *      The fast sprite engine normally applies frame changes immediately without testing DMA queue capacity, so a frame
  *      where many sprites change animation frame at once can push the flush past VBlank into active display (torn tiles,
  *      sprite table landing mid screen).<br>
