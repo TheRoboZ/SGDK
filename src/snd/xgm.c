@@ -81,10 +81,11 @@ void NO_INLINE XGM_loadDriver(const bool waitReady)
             waitMs(1);
     }
 
+    // define default XGM tempo (always based on NTSC timing)
+    // must be set before enabling the VInt task (zero tempo step would hang vintProcess)
+    XGM_setMusicTempo(60);
     // using auto sync --> enable XGM task on VInt
     Z80_setVIntCallback(XGM_getManualSync() ? NULL : &vintProcess);
-    // define default XGM tempo (always based on NTSC timing)
-    XGM_setMusicTempo(60);
     // reset load calculation
     resetLoadCalculation();
     // set bus protection signal address
@@ -128,13 +129,7 @@ void NO_INLINE XGM_startPlay(const u8 *song)
     u16 i;
     vu8 *pb;
 
-    SYS_disableInts();
-    bool busTaken = Z80_isBusTaken();
-
-    // load the appropriate driver if not already done
-    XGM_loadDriver(TRUE);
-
-    // prepare sample id table
+    // prepare sample id table (ROM and stack only, no need for interrupt mask or bus)
     for(i = 0; i < 0x3F; i++)
     {
         // sample address in sample bank data
@@ -154,9 +149,6 @@ void NO_INLINE XGM_startPlay(const u8 *song)
         ids[(i * 4) + 3] = song[(i * 4) + 3];
     }
 
-    // upload sample id table (first entry is silent sample, we don't transfer it)
-    Z80_upload(0x1C00 + 4, ids, 0x100 - 4);
-
     // get song address and bypass sample id table
     addr = ((u32) song) + 0x100;
     // bypass sample data (use the sample data size)
@@ -164,6 +156,15 @@ void NO_INLINE XGM_startPlay(const u8 *song)
     addr += ((u32) song[0xFD]) << 16;
     // and bypass the music data size field
     addr += 4;
+
+    SYS_disableInts();
+    bool busTaken = Z80_isBusTaken();
+
+    // load the appropriate driver if not already done
+    XGM_loadDriver(TRUE);
+
+    // upload sample id table (first entry is silent sample, we don't transfer it)
+    Z80_upload(0x1C00 + 4, ids, 0x100 - 4);
 
     // request Z80 BUS
     Z80_requestBus(TRUE);
@@ -375,17 +376,69 @@ void NO_INLINE XGM_startPlayPCM(const u8 id, const u8 priority, const SoundPCMCh
 
     Z80_requestBus(TRUE);
 
+    SoundPCMChannel ch = channel;
+    const u8 prio = priority & 0xF;
+
+    // auto channel selection
+    if (ch == SOUND_PCM_CH_AUTO)
+    {
+        // channels with a play command not yet processed by the driver
+        const u8 pending = (*((vu8 *) Z80_DRV_COMMAND) >> Z80_DRV_COM_PLAY_SFT) & 0xF;
+        // channel is busy if playing or pending
+        const u8 busy = ((*((vu8 *) Z80_DRV_STATUS) >> Z80_DRV_STAT_PLAYING_SFT) & 0xF) | pending;
+
+        // prefer channels 4 to 2, channel 1 last as it's usually used by music
+        if (!(busy & SOUND_PCM_CH4_MSK)) ch = SOUND_PCM_CH4;
+        else if (!(busy & SOUND_PCM_CH3_MSK)) ch = SOUND_PCM_CH3;
+        else if (!(busy & SOUND_PCM_CH2_MSK)) ch = SOUND_PCM_CH2;
+        else if (!(busy & SOUND_PCM_CH1_MSK)) ch = SOUND_PCM_CH1;
+        else
+        {
+            // all busy --> replace the lowest priority channel (if <= new priority)
+            u8 minPrio = prio + 1;
+            s16 c;
+
+            // same order as above so ties are resolved the same way
+            for(c = SOUND_PCM_CH4; c >= SOUND_PCM_CH1; c--)
+            {
+                // current playing priority (driver internal)
+                u8 p = *((vu8 *) (Z80_DRV_PARAMS + 0x10 + (c * 8)));
+
+                // pending command will replace it if its priority is >= --> take it into account
+                if (pending & (1 << c))
+                {
+                    const u8 pp = *((vu8 *) (Z80_DRV_PARAMS + 0x04 + (c * 2))) & 0xF;
+                    if (pp > p) p = pp;
+                }
+
+                if (p < minPrio)
+                {
+                    minPrio = p;
+                    ch = c;
+                }
+            }
+
+            // no channel can be used --> exit
+            if (ch == SOUND_PCM_CH_AUTO)
+            {
+                if (!busTaken) Z80_releaseBus();
+                SYS_enableInts();
+                return;
+            }
+        }
+    }
+
     // point to Z80 PCM parameters
-    pb = (u8 *) (Z80_DRV_PARAMS + 0x04 + (channel * 2));
+    pb = (u8 *) (Z80_DRV_PARAMS + 0x04 + (ch * 2));
 
     // set PCM priority and id
-    pb[0x00] = priority & 0xF;
+    pb[0x00] = prio;
     pb[0x01] = id;
 
     // point to Z80 command
     pb = (u8 *) Z80_DRV_COMMAND;
     // set play PCM channel command
-    *pb |= (Z80_DRV_COM_PLAY << channel);
+    *pb |= (Z80_DRV_COM_PLAY << ch);
 
     if (!busTaken) Z80_releaseBus();
     SYS_enableInts();
@@ -394,6 +447,9 @@ void NO_INLINE XGM_startPlayPCM(const u8 id, const u8 priority, const SoundPCMCh
 void NO_INLINE XGM_stopPlayPCM(const SoundPCMChannel channel)
 {
     vu8 *pb;
+
+    // no specific channel to stop
+    if (channel == SOUND_PCM_CH_AUTO) return;
 
     SYS_disableInts();
     bool busTaken = Z80_isBusTaken();
@@ -575,8 +631,10 @@ u32 NO_INLINE XGM_getCPULoad()
     xgmTabInd = (ind + 1) & 0x1F;
 
     load = 105 - (xgmIdleMean >> 5);
+    // idle above reference --> clamp (avoid sign extension corrupting the DMA wait field)
+    if (load < 0) load = 0;
 
-    return load | ((u32) (xgmWaitMean >> 5) << 16);
+    return ((u32) load & 0xFFFF) | ((u32) (xgmWaitMean >> 5) << 16);
 }
 
 static void resetLoadCalculation()
@@ -670,6 +728,9 @@ static void vintProcess()
     }
 
     xgmTempoCnt = cnt - xgmTempo;
+
+    // no frame to process this time --> avoid useless bus access
+    if (!num) return;
 
     // directly do the frame here as we want this code to be as fast as possible (to not waste vint time)
     // driver should be loaded here

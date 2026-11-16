@@ -253,6 +253,8 @@ void XGM_setPCMFast_FAR(const u8 id, const u8 *sample, const u32 len);
  *      If the channel was already playing the priority is used to determine if the new SFX should replace the current one (new priority >= old priority).
  *  \param channel
  *      Channel where we want to play sample, accepted values are:<br>
+ *      SOUND_PCM_CH_AUTO = auto selection from current channel usage (free channel first, channel 1 last,
+ *      otherwise the lowest priority channel if its priority is <= the new one, else sample is not played)<br>
  *      SOUND_PCM_CH1    = channel 1 (usually used by music)<br>
  *      SOUND_PCM_CH2    = channel 2<br>
  *      SOUND_PCM_CH3    = channel 3<br>
